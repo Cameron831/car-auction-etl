@@ -2,26 +2,26 @@
 A comprehensive project that ingests completed vehicle auction listings, stores raw source artifacts, and transforms key vehicle and sale data into normalized Postgres tables for analysis.
 
 ## MVP 
-- recently completed cars and bids auctions scraped daily
+- recently completed bringatrailer auctions scraped daily
 - CLI layer for orchestration/entry
 - data normalized and stored in Postgres
 - Robust CI/CD pipeline
 - Docker containerization
 
 ## Phase 1
-One hardcoded completed Cars & Bids listing
+One hardcoded completed Bring a Trailer listing
 - fetch
 - save raw HTML locally
 - parse fields
 - insert into Postgres
 
 Implementation Steps:
-- [ ] Pull raw html from a URL
+- [x] Pull raw html from a URL
 - [ ] Store raw html in local folder
 - [ ] Parse html for data outlined in schema
 - [ ] Basic CLI
 - [ ] Postgres/Docker for Postgres
-- [ ] Store data into Postgres
+- [ ] Store data into Postgres=
 
 ## Data Model
 - source_site: string
