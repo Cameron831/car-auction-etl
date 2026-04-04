@@ -17,11 +17,12 @@ One hardcoded completed Bring a Trailer listing
 
 Implementation Steps:
 - [x] Pull raw html from a URL
-- [ ] Store raw html in local folder
+- [x] Store raw html in local folder
 - [ ] Parse html for data outlined in schema
 - [ ] Basic CLI
+- [ ] Structured error handling
 - [ ] Postgres/Docker for Postgres
-- [ ] Store data into Postgres=
+- [ ] Store data into Postgres
 
 ## Data Model
 - source_site: string
