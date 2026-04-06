@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 from bs4 import BeautifulSoup
 
@@ -17,6 +18,7 @@ def transform_listing_html(listing_id):
     html = load_listing_html(listing_id)
     soup = BeautifulSoup(html, "html.parser")
     product_data = get_product_json_ld(soup)
+    listing_title = extract_listing_title(soup, product_data)
     # Placeholder for transformation logic - to be implemented
     transformed_data = {}
     return transformed_data
@@ -46,3 +48,20 @@ def get_product_json_ld(soup):
         elif isinstance(payload, dict) and payload.get("@type") == "Product":
             return payload
     raise ValueError("No valid Product JSON-LD found in listing HTML")
+
+def extract_listing_title(soup, product_data):
+    title = product_data.get("name")
+    # if the title isn't in the JSON-LD, fall back to the meta tag
+    if not title:
+        meta_tag = soup.find("meta", attrs={"name": "parsely-title"})
+        title = meta_tag.get("content") if meta_tag else None
+    # if we still don't have a title, raise an error
+    if not title:
+        raise ValueError("Could not parse listing title")
+    return _strip_listing_prefix(title)
+
+def _strip_listing_prefix(title):
+    match = re.search(r"(\d{4}\s+.+)", title)
+    if not match:
+        raise ValueError("Could not parse listing title")
+    return match.group(1).strip()

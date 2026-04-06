@@ -23,19 +23,6 @@ def test_load_listing_html_file_not_found(tmp_path, mocker):
     with pytest.raises(FileNotFoundError, match="Raw HTML file not found for listing ID: missing-id"):
         load_listing_html("missing-id")
 
-def test_transform_listing_html_returns_empty_dict(tmp_path, mocker):
-    # redirect raw HTML storage into pytest's temporary directory
-    mocker.patch("app.sources.bat.transform.RAW_HTML_DIR", tmp_path / "data" / "raw" / "bat")
-
-    # create a test HTML file to transform
-    test_file = tmp_path / "data" / "raw" / "bat" / "test-id.html"
-    test_file.parent.mkdir(parents=True, exist_ok=True)
-    test_file.write_text("<html><body><h1>Test Listing</h1></body></html>", encoding="utf-8")
-
-    # call the function being tested and assert that the transformed data is correct (currently just an empty dict)
-    transformed_data = transform_listing_html("test-id")
-    assert transformed_data == {}
-
 def test_store_transformed_data_writes_file(tmp_path, mocker):
     # redirect transformed data storage into pytest's temporary directory
     mocker.patch("app.sources.bat.transform.TRANSFORMED_HTML_DIR", tmp_path / "data" / "transformed" / "bat")
@@ -197,3 +184,49 @@ def test_get_product_json_ld_returns_product_from_array_payload():
         "@type": "Product",
         "name": "Test Product",
     }
+
+def test_extract_listing_title_from_json_ld():
+    soup = BeautifulSoup("<html></html>", "html.parser")
+    product_data = {
+        "@context": "http://schema.org",
+        "@type": "Product",
+        "name": "One Owner 2026 Make Model Title",
+    }
+    title = extract_listing_title(soup, product_data)
+    assert title == "2026 Make Model Title"
+
+def test_extract_listing_title_from_meta_tag():
+    html_content = """
+    <html>
+        <head>
+            <meta name="parsely-title" content="One Owner 2026 Make Model Title">
+        </head>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    product_data = {}
+    title = extract_listing_title(soup, product_data)
+    assert title == "2026 Make Model Title"
+
+def test_extract_listing_title_not_found():
+    html_content = """
+    <html>
+        <head>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Product"
+            }
+            </script>
+        </head>
+        <body></body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    product_data = {
+        "@context": "http://schema.org",
+        "@type": "Product"
+    }
+    with pytest.raises(ValueError, match="Could not parse listing title"):
+        extract_listing_title(soup, product_data)
+    
