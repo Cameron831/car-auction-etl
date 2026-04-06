@@ -87,3 +87,113 @@ def test_store_transformed_data_creates_parent_directory(tmp_path, mocker):
     assert saved_path == target_dir / "test-id.json"
     assert saved_path.exists()
     assert json.loads(saved_path.read_text(encoding="utf-8")) == {"key": "value"}
+
+def test_get_product_json_ld_returns_product_data(tmp_path):
+    # create a test HTML file with a valid JSON-LD script tag
+    html_content = """
+    <html>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "Test Product"
+            }
+            </script>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    product_data = get_product_json_ld(soup)
+    assert product_data == {
+        "@context": "http://schema.org",
+        "@type": "Product",
+        "name": "Test Product"
+    }
+
+def test_get_product_json_ld_multiple_script_tags(tmp_path):
+    # create a test HTML file with multiple JSON-LD script tags, only one of which contains product data
+    html_content = """
+    <html>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Organization",
+                "name": "Test Organization"
+            }
+            </script>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "Test Product"
+            }
+            </script>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    product_data = get_product_json_ld(soup)
+    assert product_data == {
+        "@context": "http://schema.org",
+        "@type": "Product",
+        "name": "Test Product"
+    }
+
+def test_get_product_json_ld_no_product_data(tmp_path):
+    # create a test HTML file with JSON-LD script tags that do not contain product data
+    html_content = """
+    <html>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Organization",
+                "name": "Test Organization"
+            }
+            </script>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="No valid Product JSON-LD found in listing HTML"):
+        get_product_json_ld(soup)
+    
+def test_get_product_json_ld_invalid_json(tmp_path):
+    # create a test HTML file with a JSON-LD script tag that contains invalid JSON
+    html_content = """
+    <html>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "Test Product",
+            }
+            </script>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="No valid Product JSON-LD found in listing HTML"):
+        get_product_json_ld(soup)
+
+def test_get_product_json_ld_returns_product_from_array_payload():
+    html_content = """
+    <html>
+        <script type="application/ld+json">
+        [
+            {
+                "@context": "http://schema.org",
+                "@type": "BreadcrumbList"
+            },
+            {
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "Test Product"
+            }
+        ]
+        </script>
+    </html>
+    """
+
+    soup = BeautifulSoup(html_content, "html.parser")
+    product_data = get_product_json_ld(soup)
+    assert product_data == {
+        "@context": "http://schema.org",
+        "@type": "Product",
+        "name": "Test Product",
+    }
