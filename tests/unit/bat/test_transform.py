@@ -406,3 +406,37 @@ def test_find_detail_value_not_found():
     ]
     with pytest.raises(ValueError, match="Could not parse Mileage"):
         find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage")
+
+def test_find_detail_value_empty_values():
+    values = []
+    with pytest.raises(ValueError, match="Could not parse Mileage"):
+        find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage")
+
+def test_extract_vin_valid():
+    raw_vin = "Chassis: WBSBL93414PN57203"
+    assert extract_vin(raw_vin) == "WBSBL93414PN57203"
+
+def test_extract_vin_invalid():
+    raw_vin = "Chassis: INVALID VIN"
+    with pytest.raises(ValueError, match="Could not parse VIN"):
+        extract_vin(raw_vin)
+
+def test_extract_vin_no_chassis_prefix():
+    raw_vin = "WBSBL93414PN57203"
+    with pytest.raises(ValueError, match="Could not parse VIN"):
+        extract_vin(raw_vin)
+
+def test_find_detail_value_VIN_valid():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert find_detail_value(values, r"^Chassis:", "VIN") == "Chassis: WBSBL93414PN57203"
+
+def test_find_detail_value_VIN_invalid():
+    values = [
+        "2,500 Miles",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    with pytest.raises(ValueError, match="Could not parse VIN"):
+        find_detail_value(values, r"^Chassis:", "VIN")

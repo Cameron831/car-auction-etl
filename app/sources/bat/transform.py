@@ -26,6 +26,7 @@ def transform_listing_html(listing_id):
     make = parse_make(soup)
     model = parse_model(soup)
     mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
+    VIN = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
 
     # Placeholder for transformation logic - to be implemented
     transformed_data = {
@@ -149,3 +150,9 @@ def parse_mileage(raw_mileage):
         mileage *= 1000
 
     return mileage
+
+def extract_vin(raw_vin):
+    match = re.search(r"Chassis:\s*([A-HJ-NPR-Z0-9]+)", raw_vin, re.IGNORECASE)
+    if not match:
+        raise ValueError("Could not parse VIN")
+    return match.group(1).upper()
