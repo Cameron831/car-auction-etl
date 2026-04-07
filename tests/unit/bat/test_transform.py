@@ -230,3 +230,73 @@ def test_extract_listing_title_not_found():
     with pytest.raises(ValueError, match="Could not parse listing title"):
         extract_listing_title(soup, product_data)
     
+def test_parse_year_valid_title():
+    title = "2026 Make Model Title"
+    year = parse_year(title)
+    assert year == 2026
+
+def test_parse_year_invalid_title():
+    title = "Make Model Title"
+    with pytest.raises(ValueError, match="Could not parse year from listing title"):
+        parse_year(title)
+
+def test_parse_model_valid():
+    html_content = """
+    <html>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Model</strong>
+                Model Name
+            </button>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    model = parse_model(soup)
+    assert model == "Model Name"
+
+def test_parse_model_not_found():
+    html_content = """
+    <html>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Make</strong>
+                Make Name
+            </button>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Could not find 'Model' group"):
+        parse_model(soup)
+
+def test_parse_make_valid():
+    html_content = """
+    <html>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Make</strong>
+                Make Name
+            </button>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    make = parse_make(soup)
+    assert make == "Make Name"
+
+def test_parse_make_not_found():
+    html_content = """
+    <html>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Model</strong>
+                Model Name
+            </button>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Could not find 'Make' group"):
+        parse_make(soup)
+

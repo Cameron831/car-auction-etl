@@ -19,8 +19,15 @@ def transform_listing_html(listing_id):
     soup = BeautifulSoup(html, "html.parser")
     product_data = get_product_json_ld(soup)
     listing_title = extract_listing_title(soup, product_data)
+    year = parse_year(listing_title)
+    make = parse_make(soup)
+    model = parse_model(soup)
     # Placeholder for transformation logic - to be implemented
-    transformed_data = {}
+    transformed_data = {
+        "make": make,
+        "model": model,
+        "year": year
+    }
     return transformed_data
 
 def store_transformed_data(listing_id, data):
@@ -65,3 +72,36 @@ def _strip_listing_prefix(title):
     if not match:
         raise ValueError("Could not parse listing title")
     return match.group(1).strip()
+
+def parse_year(title):
+    match = re.match(r"(\d{4})", title)
+    if not match:
+        raise ValueError("Could not parse year from listing title")
+    return int(match.group(1))
+
+def parse_model(soup):
+   return extract_group_value(soup, "Model")
+
+def parse_make(soup):
+    return extract_group_value(soup, "Make")
+
+def extract_group_value(soup: BeautifulSoup, label: str) -> str:
+    for button in soup.select("button.group-title"):
+        label_tag = button.select_one("strong.group-title-label")
+        if not label_tag:
+            continue
+
+        if label_tag.get_text(strip=True) != label:
+            continue
+
+        # Get the button text, then remove the label text from the front
+        full_text = button.get_text(" ", strip=True)
+        label_text = label_tag.get_text(" ", strip=True)
+
+        value = full_text.removeprefix(label_text).strip()
+        if not value:
+            raise ValueError(f"Found '{label}' group but it had no value")
+
+        return value
+
+    raise ValueError(f"Could not find '{label}' group")
