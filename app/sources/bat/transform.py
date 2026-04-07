@@ -19,14 +19,20 @@ def transform_listing_html(listing_id):
     soup = BeautifulSoup(html, "html.parser")
     product_data = get_product_json_ld(soup)
     listing_title = extract_listing_title(soup, product_data)
+    listing_details = get_listing_details(soup)
+
+    # transformed entries
     year = parse_year(listing_title)
     make = parse_make(soup)
     model = parse_model(soup)
+    mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
+
     # Placeholder for transformation logic - to be implemented
     transformed_data = {
         "make": make,
         "model": model,
-        "year": year
+        "year": year,
+        "mileage": mileage,
     }
     return transformed_data
 
@@ -121,5 +127,25 @@ def get_listing_details(soup):
         raise ValueError("Could not parse listing details")
     return values
 
+# Find the corresponding value for a given field in the listing details
+def find_detail_value(values, pattern, field_name):
+    for value in values:
+        if re.search(pattern, value, re.IGNORECASE):
+            return value
+    raise ValueError(f"Could not parse {field_name}")
 
+def parse_mileage(raw_mileage):
+    mileage = raw_mileage.strip().lower()
 
+    if "tmu" in mileage or "unknown" in mileage:
+        return None
+
+    match = re.search(r"(\d{1,3}(?:,\d{3})*|\d+)(k)?\s+miles\b", mileage)
+    if not match:
+        raise ValueError(f"Could not parse mileage")
+
+    mileage = int(match.group(1).replace(",", ""))
+    if match.group(2):
+        mileage *= 1000
+
+    return mileage

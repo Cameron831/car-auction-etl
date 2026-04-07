@@ -353,3 +353,56 @@ def test_get_listing_details_no_list():
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not parse listing details"):
         get_listing_details(soup)
+
+def test_parse_mileage_valid():
+    assert parse_mileage("100k Miles") == 100000
+    assert parse_mileage("50,000 Miles") == 50000
+    assert parse_mileage("100 miles") == 100
+
+def test_parse_mileage_TMU():
+    assert parse_mileage("TMU") == None
+    assert parse_mileage("Mileage Unknown") == None
+
+def test_parse_mileage_invalid():
+    with pytest.raises(ValueError, match="Could not parse mileage"):
+        parse_mileage("")
+
+def test_find_detail_value_valid_miles_with_k():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "100k Miles",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "100k Miles"
+
+def test_find_detail_value_valid_miles_without_k():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "2,500 Miles",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "2,500 Miles"
+
+def test_find_detail_value_valid_miles_and_tmu():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "2,500 Miles, TMU",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "2,500 Miles, TMU"
+
+def test_find_detail_value_valid_tmu_only():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "TMU",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "TMU"
+
+def test_find_detail_value_not_found():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    with pytest.raises(ValueError, match="Could not parse Mileage"):
+        find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage")
