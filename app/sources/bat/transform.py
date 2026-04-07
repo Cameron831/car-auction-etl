@@ -105,3 +105,21 @@ def extract_group_value(soup: BeautifulSoup, label: str) -> str:
         return value
 
     raise ValueError(f"Could not find '{label}' group")
+
+def get_listing_details(soup):
+    details_header = soup.find("strong", string=re.compile(r"Listing Details"))
+    if not details_header:
+        raise ValueError("Could not parse listing details")
+
+    details_container = details_header.find_parent("div", class_="item")
+    details_list = details_container.find("ul") if details_container else None
+    if not details_list:
+        raise ValueError("Could not parse listing details")
+
+    values = [item.get_text(" ", strip=True) for item in details_list.find_all("li")]
+    if not values:
+        raise ValueError("Could not parse listing details")
+    return values
+
+
+

@@ -299,4 +299,57 @@ def test_parse_make_not_found():
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not find 'Make' group"):
         parse_make(soup)
+    
+def test_get_listing_details_valid():
+    html_content = """
+    <html>
+        <body>
+            <div class="item">
+                <strong>Listing Details</strong>
+                <ul>
+                    <li>Chassis: <a href="test-url">WBSBL93414PN57203</a></li>
+                    <li>100k Miles</li>
+                    <li>3.2-Liter S54 Inline-Six</li>
+                </ul>
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    details = get_listing_details(soup)
+    assert details == [
+        "Chassis: WBSBL93414PN57203",
+        "100k Miles",
+        "3.2-Liter S54 Inline-Six",
+    ]
 
+def test_get_listing_details_not_found():
+    html_content = """
+    <html>
+        <body>
+            <div class="item">
+                <strong>Other Details</strong>
+                <ul>
+                    <li>100k Miles</li>
+                </ul>
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Could not parse listing details"):
+        get_listing_details(soup)
+
+def test_get_listing_details_no_list():
+    html_content = """
+    <html>
+        <body>
+            <div class="item">
+                <strong>Listing Details</strong>
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Could not parse listing details"):
+        get_listing_details(soup)
