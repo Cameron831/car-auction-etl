@@ -28,13 +28,12 @@ Implementation Steps:
 - source_site: string
 - listing_id: string
 - url: string
-- auction_end_at: datetime
+- auction_end_date: datetime
 - make: string
 - model: string
 - year: int
 - mileage: int
-- VIN: string
-- title_status: string
+- vin: string
 - sale_price: int
 - sold: boolean
 - transmission: string
@@ -46,6 +45,7 @@ Implement Later:
 - engine: string
 - body_style: string
 - exterior_color: string
+- title_status: string
 
 ## Tools
 - Docker
