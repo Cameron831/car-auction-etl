@@ -491,3 +491,46 @@ def test_extract_bid_price_no_price_info():
     product_data = {}
     with pytest.raises(ValueError, match="Could not parse sale price"):
         extract_sale_price(soup, product_data)
+
+def test_extract_sold_status_valid():
+    html_content = """
+    <html>
+        <body>
+            <div class="listing-available">
+                    <div class="listing-available-info">
+                        <span class="info-value noborder-tiny">Sold for <strong>USD $19,750</strong></span>
+                </div>
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    assert extract_sold_status(soup) == True
+
+def test_extract_sold_status_not_sold():
+    html_content = """
+    <html>
+        <body>
+            <div class="listing-available">
+                    <div class="listing-available-info">
+                        <span class="info-value noborder-tiny">Bid to <strong>USD $19,750</strong></span>
+                </div>
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    assert extract_sold_status(soup) == False
+
+def test_extract_sold_status_no_available_info():
+    html_content = """
+    <html>
+        <body>
+            <div class="listing-available">
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Could not parse sold status"):
+        extract_sold_status(soup)
