@@ -27,13 +27,15 @@ def transform_listing_html(listing_id):
     model = parse_model(soup)
     mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
     VIN = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
-
+    sale_price = extract_sale_price(soup, product_data),
     # Placeholder for transformation logic - to be implemented
     transformed_data = {
         "make": make,
         "model": model,
         "year": year,
         "mileage": mileage,
+        "VIN": VIN,
+        "sale_price": sale_price
     }
     return transformed_data
 
@@ -156,3 +158,20 @@ def extract_vin(raw_vin):
     if not match:
         raise ValueError("Could not parse VIN")
     return match.group(1).upper()
+
+def extract_sale_price(soup, product_data):
+    offers = product_data.get("offers", {})
+    price = offers.get("price") if isinstance(offers, dict) else None
+    if price:
+        return int(float(price))
+
+    bid_label = soup.find(string=re.compile(r"Winning Bid"))
+    if not bid_label:
+        raise ValueError("Could not parse sale price")
+
+    bid_row = bid_label.find_parent("tr")
+    bid_text = bid_row.get_text(" ", strip=True) if bid_row else ""
+    match = re.search(r"\$([\d,]+)", bid_text)
+    if not match:
+        raise ValueError("Could not parse sale price")
+    return int(match.group(1).replace(",", ""))
