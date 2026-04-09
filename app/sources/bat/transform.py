@@ -27,12 +27,13 @@ def transform_listing_html(listing_id):
     make = parse_make(soup)
     model = parse_model(soup)
     mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
-    VIN = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
+    vin = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
     sale_price = extract_sale_price(soup, product_data)
     sold = extract_sold_status(soup)
     auction_end_date = extract_auction_end_date(soup)
     transmission = normalize_transmission(find_detail_value(listing_details, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission"))
-    # Placeholder for transformation logic - to be implemented
+
+    # transaformed data object
     transformed_data = {
         "source_site": SOURCE_SITE,
         "listing_id": listing_id,
@@ -41,11 +42,12 @@ def transform_listing_html(listing_id):
         "model": model,
         "year": year,
         "mileage": mileage,
-        "VIN": VIN,
+        "vin": vin,
         "sale_price": sale_price,
         "sold": sold,
         "auction_end_date": auction_end_date,
-        "transmission": transmission
+        "transmission": transmission,
+        "listing_details_raw": listing_details,
     }
     return transformed_data
 
@@ -99,7 +101,7 @@ def parse_year(title):
     return int(match.group(1))
 
 def parse_model(soup):
-   return extract_group_value(soup, "Model")
+    return extract_group_value(soup, "Model")
 
 def parse_make(soup):
     return extract_group_value(soup, "Make")
