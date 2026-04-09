@@ -440,3 +440,54 @@ def test_find_detail_value_VIN_invalid():
     ]
     with pytest.raises(ValueError, match="Could not parse VIN"):
         find_detail_value(values, r"^Chassis:", "VIN")
+
+def test_extact_bid_price_valid_product_data():
+    html_content = """
+    <html>
+        <body></body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    product_data = {
+        "@context": "http://schema.org",
+        "@type": "Product",
+        "offers":{"@type":"Offer","priceCurrency":"USD","price":19750}
+    }
+    price = extract_sale_price(soup, product_data)
+    assert price == 19750
+
+def test_extract_bid_price_valid_bid_label():
+    html_content = """
+    <html>
+        <body>
+            <table>
+                <tr>
+                    <td>Winning Bid</td>
+                    <td>$19,750</td>
+                </tr>
+            </table>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    product_data = {}
+    price = extract_sale_price(soup, product_data)
+    assert price == 19750
+
+def test_extract_bid_price_no_price_info():
+    html_content = """
+    <html>
+        <body>
+            <table>
+                <tr>
+                    <td>Winning Bid</td>
+                    <td>Price Not Available</td>
+                </tr>
+            </table>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    product_data = {}
+    with pytest.raises(ValueError, match="Could not parse sale price"):
+        extract_sale_price(soup, product_data)
