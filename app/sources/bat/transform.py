@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime
 from pathlib import Path
 from bs4 import BeautifulSoup
 
@@ -29,7 +30,7 @@ def transform_listing_html(listing_id):
     VIN = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
     sale_price = extract_sale_price(soup, product_data)
     sold = extract_sold_status(soup)
-
+    auction_end_date = extract_auction_end_date(soup)
     # Placeholder for transformation logic - to be implemented
     transformed_data = {
         "make": make,
@@ -38,7 +39,8 @@ def transform_listing_html(listing_id):
         "mileage": mileage,
         "VIN": VIN,
         "sale_price": sale_price,
-        "sold": sold
+        "sold": sold,
+        "auction_end_date": auction_end_date
     }
     return transformed_data
 
@@ -189,3 +191,14 @@ def extract_sold_status(soup):
     elif "Sold for" in text:
         return True
     raise ValueError("Could not parse sold status")
+
+def extract_auction_end_date(soup):
+    date_tag = soup.select_one("span.date.date-localize")
+    if not date_tag:
+        raise ValueError("Could not find sale date")
+
+    timestamp = date_tag.get("data-timestamp")
+    if not timestamp:
+        raise ValueError("Sale date missing data-timestamp")
+
+    return datetime.fromtimestamp(int(timestamp)).date().isoformat()

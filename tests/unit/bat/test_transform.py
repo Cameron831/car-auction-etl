@@ -534,3 +534,45 @@ def test_extract_sold_status_no_available_info():
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not parse sold status"):
         extract_sold_status(soup)
+
+
+def test_extract_auction_end_text_valid():
+    html_content = """
+    <html>
+        <body>
+            <div class="listing-available">
+                <span class="date date-localize" data-timestamp="1774898451"</span>
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    end_text = extract_auction_end_date(soup)
+    assert end_text == "2026-03-30"
+
+def test_extract_auction_end_text_no_date_tag():
+    html_content = """
+    <html>
+        <body>
+            <div class="listing-available">
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Could not find sale date"):
+        extract_auction_end_date(soup)
+
+def test_extract_auction_end_text_no_timestamp():
+    html_content = """
+    <html>
+        <body>
+            <div class="listing-available">
+                <span class="date date-localize"></span>
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Sale date missing data-timestamp"):
+        extract_auction_end_date(soup)
