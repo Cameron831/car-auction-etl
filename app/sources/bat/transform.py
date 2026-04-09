@@ -27,7 +27,9 @@ def transform_listing_html(listing_id):
     model = parse_model(soup)
     mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
     VIN = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
-    sale_price = extract_sale_price(soup, product_data),
+    sale_price = extract_sale_price(soup, product_data)
+    sold = extract_sold_status(soup)
+
     # Placeholder for transformation logic - to be implemented
     transformed_data = {
         "make": make,
@@ -35,7 +37,8 @@ def transform_listing_html(listing_id):
         "year": year,
         "mileage": mileage,
         "VIN": VIN,
-        "sale_price": sale_price
+        "sale_price": sale_price,
+        "sold": sold
     }
     return transformed_data
 
@@ -175,3 +178,14 @@ def extract_sale_price(soup, product_data):
     if not match:
         raise ValueError("Could not parse sale price")
     return int(match.group(1).replace(",", ""))
+
+def extract_sold_status(soup):
+    available_info = soup.select_one(".listing-available-info")
+    if not available_info:
+        raise ValueError("Could not parse sold status")
+    text = available_info.get_text(" ", strip=True)
+    if "Bid to" in text:
+        return False
+    elif "Sold for" in text:
+        return True
+    raise ValueError("Could not parse sold status")
