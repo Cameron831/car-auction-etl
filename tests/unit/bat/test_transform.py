@@ -412,6 +412,38 @@ def test_find_detail_value_empty_values():
     with pytest.raises(ValueError, match="Could not parse Mileage"):
         find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage")
 
+def test_find_detail_value_valid_transmission():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "Four speed manual transmission",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "Four speed manual transmission"
+
+def test_find_detail_value_valid_tranaxle():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "6-Speed manual transaxle",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "6-Speed manual transaxle"
+
+def test_find_detail_value_valid_gearbox():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "Automatic gearbox",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "Automatic gearbox"
+
+def test_find_detail_value_transmission_not_found():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    with pytest.raises(ValueError, match="Could not parse Transmission"):
+        find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission")
+
 def test_extract_vin_valid():
     raw_vin = "Chassis: WBSBL93414PN57203"
     assert extract_vin(raw_vin) == "WBSBL93414PN57203"
@@ -576,3 +608,15 @@ def test_extract_auction_end_text_no_timestamp():
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Sale date missing data-timestamp"):
         extract_auction_end_date(soup)
+
+def test_normalize_transmission_manual():
+    assert normalize_transmission("Four speed manual transmission") == "manual"
+    assert normalize_transmission("6-Speed manual transaxle") == "manual"
+
+def test_normalize_transmission_automatic():
+    assert normalize_transmission("six speed gearbox") == "automatic"
+    assert normalize_transmission("5-Speed automatic transmission") == "automatic"  
+
+def test_normalize_transmission_empty():
+    with pytest.raises(ValueError, match="Could not normalize transmission"):
+        normalize_transmission("")

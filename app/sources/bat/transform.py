@@ -31,8 +31,12 @@ def transform_listing_html(listing_id):
     sale_price = extract_sale_price(soup, product_data)
     sold = extract_sold_status(soup)
     auction_end_date = extract_auction_end_date(soup)
+    transmission = normalize_transmission(find_detail_value(listing_details, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission"))
     # Placeholder for transformation logic - to be implemented
     transformed_data = {
+        "source_site": SOURCE_SITE,
+        "listing_id": listing_id,
+        "url": f"https://bringatrailer.com/listing/{listing_id}/",
         "make": make,
         "model": model,
         "year": year,
@@ -40,7 +44,8 @@ def transform_listing_html(listing_id):
         "VIN": VIN,
         "sale_price": sale_price,
         "sold": sold,
-        "auction_end_date": auction_end_date
+        "auction_end_date": auction_end_date,
+        "transmission": transmission
     }
     return transformed_data
 
@@ -202,3 +207,11 @@ def extract_auction_end_date(soup):
         raise ValueError("Sale date missing data-timestamp")
 
     return datetime.fromtimestamp(int(timestamp)).date().isoformat()
+
+def normalize_transmission(raw_transmission):
+    value = raw_transmission.lower()
+    if "manual" in value:
+        return "manual"
+    if value:
+        return "automatic"
+    raise ValueError("Could not normalize transmission")
