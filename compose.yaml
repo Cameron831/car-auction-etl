@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: auction-postgres
+    environment:
+      POSTGRES_DB: auction_etl
+      POSTGRES_USER: auction_user
+      POSTGRES_PASSWORD: localdevpassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - auction_postgres_data:/var/lib/postgresql/data
+      - ./sql/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+
+volumes:
+  auction_postgres_data:

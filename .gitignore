@@ -4,6 +4,5 @@ __pycache__/
 data/
 transform_backup.py
 .env
-compose.yaml
 AGENTS.md
 .runs/
