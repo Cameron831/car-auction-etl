@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 data/
 transform_backup.py
+.env
+compose.yaml
+AGENTS.md
+.runs/
