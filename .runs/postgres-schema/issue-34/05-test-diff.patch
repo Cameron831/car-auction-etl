@@ -1,4 +1,0 @@
-No test files changed for Issue #34.
-
-Automated tests were intentionally not added per the approved test execution plan.
-Verification for this issue is review-only because schema verification tests are covered by issue #36 and Docker init verification is covered by issue #35.
