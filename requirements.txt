@@ -6,6 +6,7 @@ idna==3.11
 iniconfig==2.3.0
 packaging==26.0
 pluggy==1.6.0
+psycopg[binary]==3.2.13
 Pygments==2.20.0
 pytest==9.0.2
 pytest-mock==3.15.1
