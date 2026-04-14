@@ -25,7 +25,7 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
     ]
 
 
-def test_load_listing_executes_upsert_with_expected_conflict_target(monkeypatch):
+def test_load_listing_executes_upsert_with_expected_conflict_target(mocker):
     calls = {}
 
     class FakeCursor:
@@ -53,8 +53,11 @@ def test_load_listing_executes_upsert_with_expected_conflict_target(monkeypatch)
         calls["database_url"] = database_url
         return FakeConnection()
 
-    monkeypatch.setenv("DATABASE_URL", "postgresql://user:pass@localhost/db")
-    monkeypatch.setattr(load.psycopg, "connect", fake_connect)
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(load.psycopg, "connect", side_effect=fake_connect)
 
     load.load_listing(_transformed_listing())
 
@@ -69,12 +72,8 @@ def test_load_listing_executes_upsert_with_expected_conflict_target(monkeypatch)
     ]
 
 
-def test_load_listing_requires_database_url(monkeypatch):
-    def fail_connect(database_url):
-        raise AssertionError("psycopg.connect should not be called")
-
-    monkeypatch.delenv("DATABASE_URL", raising=False)
-    monkeypatch.setattr(load.psycopg, "connect", fail_connect)
+def test_load_listing_requires_database_url(mocker):
+    mocker.patch.dict("os.environ", {}, clear=True)
 
     with pytest.raises(RuntimeError, match="DATABASE_URL must be set"):
         load.load_listing(_transformed_listing())

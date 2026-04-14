@@ -51,7 +51,9 @@ ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
 
 
 def load_listing(transformed_listing):
-    database_url = _get_database_url()
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL must be set")
     params = build_listing_params(transformed_listing)
 
     with psycopg.connect(database_url) as conn:
@@ -75,10 +77,3 @@ def build_listing_params(transformed_listing):
         "transmission": transformed_listing["transmission"],
         "listing_details_raw": Jsonb(transformed_listing["listing_details_raw"]),
     }
-
-
-def _get_database_url():
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        raise RuntimeError("DATABASE_URL must be set to load BAT listings into Postgres")
-    return database_url

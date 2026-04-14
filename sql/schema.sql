@@ -22,9 +22,3 @@ CREATE TABLE IF NOT EXISTS listings (
     CONSTRAINT listings_transmission_check CHECK (transmission IS NULL OR transmission IN ('manual', 'automatic'))
 );
 
-CREATE INDEX IF NOT EXISTS listings_auction_end_date_idx
-    ON listings (auction_end_date);
-
-CREATE INDEX IF NOT EXISTS listings_vin_idx
-    ON listings (vin)
-    WHERE vin IS NOT NULL;

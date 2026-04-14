@@ -8,6 +8,12 @@ import pytest
 
 from app.sources.bat.load import load_listing
 
+"""
+note:
+This test module was generated through my agent-assisted workflow and only
+lightly reviewed. Treat it as provisional until it is manually
+validated and refined.
+"""
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = REPO_ROOT / "sql" / "schema.sql"
