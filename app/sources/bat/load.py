@@ -1,0 +1,79 @@
+import os
+
+import psycopg
+from psycopg.types.json import Jsonb
+
+
+INSERT_LISTING_SQL = """
+INSERT INTO listings (
+    source_site,
+    source_listing_id,
+    url,
+    make,
+    model,
+    year,
+    mileage,
+    vin,
+    sale_price,
+    sold,
+    auction_end_date,
+    transmission,
+    listing_details_raw
+) VALUES (
+    %(source_site)s,
+    %(source_listing_id)s,
+    %(url)s,
+    %(make)s,
+    %(model)s,
+    %(year)s,
+    %(mileage)s,
+    %(vin)s,
+    %(sale_price)s,
+    %(sold)s,
+    %(auction_end_date)s,
+    %(transmission)s,
+    %(listing_details_raw)s
+)
+ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
+    url = EXCLUDED.url,
+    make = EXCLUDED.make,
+    model = EXCLUDED.model,
+    year = EXCLUDED.year,
+    mileage = EXCLUDED.mileage,
+    vin = EXCLUDED.vin,
+    sale_price = EXCLUDED.sale_price,
+    sold = EXCLUDED.sold,
+    auction_end_date = EXCLUDED.auction_end_date,
+    transmission = EXCLUDED.transmission,
+    listing_details_raw = EXCLUDED.listing_details_raw,
+    updated_at = NOW()
+"""
+
+
+def load_listing(transformed_listing):
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL must be set")
+    params = build_listing_params(transformed_listing)
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(INSERT_LISTING_SQL, params)
+
+
+def build_listing_params(transformed_listing):
+    return {
+        "source_site": transformed_listing["source_site"],
+        "source_listing_id": transformed_listing["listing_id"],
+        "url": transformed_listing["url"],
+        "make": transformed_listing["make"],
+        "model": transformed_listing["model"],
+        "year": transformed_listing["year"],
+        "mileage": transformed_listing["mileage"],
+        "vin": transformed_listing["vin"],
+        "sale_price": transformed_listing["sale_price"],
+        "sold": transformed_listing["sold"],
+        "auction_end_date": transformed_listing["auction_end_date"],
+        "transmission": transformed_listing["transmission"],
+        "listing_details_raw": Jsonb(transformed_listing["listing_details_raw"]),
+    }
