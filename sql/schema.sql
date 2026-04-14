@@ -22,3 +22,13 @@ CREATE TABLE IF NOT EXISTS listings (
     CONSTRAINT listings_transmission_check CHECK (transmission IS NULL OR transmission IN ('manual', 'automatic'))
 );
 
+CREATE TABLE IF NOT EXISTS raw_listing_html (
+    id BIGSERIAL PRIMARY KEY,
+    source_site TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    raw_html TEXT NOT NULL,
+    processed BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (source_site, source_listing_id)
+)
