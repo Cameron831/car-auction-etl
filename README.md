@@ -19,10 +19,21 @@ Implementation Steps:
 - [x] Pull raw html from a URL
 - [x] Store raw html in local folder
 - [x] Parse html for data outlined in schema
-- [ ] Basic CLI
+- [x] Basic CLI
 - [ ] Structured error handling
 - [x] Postgres/Docker for Postgres
 - [ ] Store data into Postgres
+
+## CLI
+Run the current Phase 1 Bring a Trailer ETL pipeline from the repository root:
+
+```powershell
+python -m app.cli <bat-listing-id>
+```
+
+The command fetches the listing HTML, saves the raw HTML record, transforms it,
+and loads the transformed listing into Postgres. `DATABASE_URL` must be set for
+the save, transform, and load steps.
 
 ## Data Model
 - source_site: string
