@@ -2,24 +2,6 @@ from bs4 import BeautifulSoup
 import pytest
 
 from app.sources.bat import transform
-from app.sources.bat.transform import (
-    extract_auction_end_date,
-    extract_group_value,
-    extract_listing_title,
-    extract_sale_price,
-    extract_sold_status,
-    extract_vin,
-    find_detail_value,
-    get_listing_details,
-    get_product_json_ld,
-    load_listing_html,
-    normalize_transmission,
-    parse_make,
-    parse_mileage,
-    parse_model,
-    parse_year,
-    transform_listing_html,
-)
 
 def test_build_raw_listing_lookup_params_maps_listing_to_schema_columns():
     params = transform.build_raw_listing_lookup_params("test-id")
@@ -67,7 +49,7 @@ def test_load_listing_html_retrieves_raw_html_from_postgres(mocker):
     )
     mocker.patch.object(transform.psycopg, "connect", side_effect=fake_connect)
 
-    html = load_listing_html("test-id")
+    html = transform.load_listing_html("test-id")
 
     assert html == "<html>Test</html>"
     assert calls["database_url"] == "postgresql://user:pass@localhost/db"
@@ -111,14 +93,14 @@ def test_load_listing_html_missing_record_raises_clear_error(mocker):
     mocker.patch.object(transform.psycopg, "connect", return_value=FakeConnection())
 
     with pytest.raises(LookupError, match="Raw HTML record not found for listing ID: missing-id"):
-        load_listing_html("missing-id")
+        transform.load_listing_html("missing-id")
 
 
 def test_load_listing_html_requires_database_url(mocker):
     mocker.patch.dict("os.environ", {}, clear=True)
 
     with pytest.raises(RuntimeError, match="DATABASE_URL must be set"):
-        load_listing_html("test-id")
+        transform.load_listing_html("test-id")
 
 def test_get_product_json_ld_returns_product_data(tmp_path):
     # create a test HTML file with a valid JSON-LD script tag
@@ -134,7 +116,7 @@ def test_get_product_json_ld_returns_product_data(tmp_path):
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    product_data = get_product_json_ld(soup)
+    product_data = transform.get_product_json_ld(soup)
     assert product_data == {
         "@context": "http://schema.org",
         "@type": "Product",
@@ -162,7 +144,7 @@ def test_get_product_json_ld_multiple_script_tags(tmp_path):
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    product_data = get_product_json_ld(soup)
+    product_data = transform.get_product_json_ld(soup)
     assert product_data == {
         "@context": "http://schema.org",
         "@type": "Product",
@@ -184,7 +166,7 @@ def test_get_product_json_ld_no_product_data(tmp_path):
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="No valid Product JSON-LD found in listing HTML"):
-        get_product_json_ld(soup)
+        transform.get_product_json_ld(soup)
     
 def test_get_product_json_ld_invalid_json(tmp_path):
     # create a test HTML file with a JSON-LD script tag that contains invalid JSON
@@ -201,7 +183,7 @@ def test_get_product_json_ld_invalid_json(tmp_path):
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="No valid Product JSON-LD found in listing HTML"):
-        get_product_json_ld(soup)
+        transform.get_product_json_ld(soup)
 
 def test_get_product_json_ld_returns_product_from_array_payload():
     html_content = """
@@ -223,7 +205,7 @@ def test_get_product_json_ld_returns_product_from_array_payload():
     """
 
     soup = BeautifulSoup(html_content, "html.parser")
-    product_data = get_product_json_ld(soup)
+    product_data = transform.get_product_json_ld(soup)
     assert product_data == {
         "@context": "http://schema.org",
         "@type": "Product",
@@ -237,7 +219,7 @@ def test_extract_listing_title_from_json_ld():
         "@type": "Product",
         "name": "One Owner 2026 Make Model Title",
     }
-    title = extract_listing_title(soup, product_data)
+    title = transform.extract_listing_title(soup, product_data)
     assert title == "2026 Make Model Title"
 
 def test_extract_listing_title_from_meta_tag():
@@ -250,7 +232,7 @@ def test_extract_listing_title_from_meta_tag():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     product_data = {}
-    title = extract_listing_title(soup, product_data)
+    title = transform.extract_listing_title(soup, product_data)
     assert title == "2026 Make Model Title"
 
 def test_extract_listing_title_not_found():
@@ -273,17 +255,17 @@ def test_extract_listing_title_not_found():
         "@type": "Product"
     }
     with pytest.raises(ValueError, match="Could not parse listing title"):
-        extract_listing_title(soup, product_data)
+        transform.extract_listing_title(soup, product_data)
     
 def test_parse_year_valid_title():
     title = "2026 Make Model Title"
-    year = parse_year(title)
+    year = transform.parse_year(title)
     assert year == 2026
 
 def test_parse_year_invalid_title():
     title = "Make Model Title"
     with pytest.raises(ValueError, match="Could not parse year from listing title"):
-        parse_year(title)
+        transform.parse_year(title)
 
 def test_parse_model_valid():
     html_content = """
@@ -297,7 +279,7 @@ def test_parse_model_valid():
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    model = parse_model(soup)
+    model = transform.parse_model(soup)
     assert model == "Model Name"
 
 def test_parse_model_not_found():
@@ -313,7 +295,7 @@ def test_parse_model_not_found():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not find 'Model' group"):
-        parse_model(soup)
+        transform.parse_model(soup)
 
 def test_parse_make_valid():
     html_content = """
@@ -327,7 +309,7 @@ def test_parse_make_valid():
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    make = parse_make(soup)
+    make = transform.parse_make(soup)
     assert make == "Make Name"
 
 def test_parse_make_not_found():
@@ -343,7 +325,7 @@ def test_parse_make_not_found():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not find 'Make' group"):
-        parse_make(soup)
+        transform.parse_make(soup)
     
 def test_get_listing_details_valid():
     html_content = """
@@ -361,7 +343,7 @@ def test_get_listing_details_valid():
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    details = get_listing_details(soup)
+    details = transform.get_listing_details(soup)
     assert details == [
         "Chassis: WBSBL93414PN57203",
         "100k Miles",
@@ -383,7 +365,7 @@ def test_get_listing_details_not_found():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not parse listing details"):
-        get_listing_details(soup)
+        transform.get_listing_details(soup)
 
 def test_get_listing_details_no_list():
     html_content = """
@@ -397,20 +379,20 @@ def test_get_listing_details_no_list():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not parse listing details"):
-        get_listing_details(soup)
+        transform.get_listing_details(soup)
 
 def test_parse_mileage_valid():
-    assert parse_mileage("100k Miles") == 100000
-    assert parse_mileage("50,000 Miles") == 50000
-    assert parse_mileage("100 miles") == 100
+    assert transform.parse_mileage("100k Miles") == 100000
+    assert transform.parse_mileage("50,000 Miles") == 50000
+    assert transform.parse_mileage("100 miles") == 100
 
 def test_parse_mileage_TMU():
-    assert parse_mileage("TMU") == None
-    assert parse_mileage("Mileage Unknown") == None
+    assert transform.parse_mileage("TMU") == None
+    assert transform.parse_mileage("Mileage Unknown") == None
 
 def test_parse_mileage_invalid():
     with pytest.raises(ValueError, match="Could not parse mileage"):
-        parse_mileage("")
+        transform.parse_mileage("")
 
 def test_find_detail_value_valid_miles_with_k():
     values = [
@@ -418,7 +400,7 @@ def test_find_detail_value_valid_miles_with_k():
         "100k Miles",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "100k Miles"
+    assert transform.find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "100k Miles"
 
 def test_find_detail_value_valid_miles_without_k():
     values = [
@@ -426,7 +408,7 @@ def test_find_detail_value_valid_miles_without_k():
         "2,500 Miles",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "2,500 Miles"
+    assert transform.find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "2,500 Miles"
 
 def test_find_detail_value_valid_miles_and_tmu():
     values = [
@@ -434,7 +416,7 @@ def test_find_detail_value_valid_miles_and_tmu():
         "2,500 Miles, TMU",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "2,500 Miles, TMU"
+    assert transform.find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "2,500 Miles, TMU"
 
 def test_find_detail_value_valid_tmu_only():
     values = [
@@ -442,7 +424,7 @@ def test_find_detail_value_valid_tmu_only():
         "TMU",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "TMU"
+    assert transform.find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage") == "TMU"
 
 def test_find_detail_value_not_found():
     values = [
@@ -450,12 +432,12 @@ def test_find_detail_value_not_found():
         "3.2-Liter S54 Inline-Six",
     ]
     with pytest.raises(ValueError, match="Could not parse Mileage"):
-        find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage")
+        transform.find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage")
 
 def test_find_detail_value_empty_values():
     values = []
     with pytest.raises(ValueError, match="Could not parse Mileage"):
-        find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage")
+        transform.find_detail_value(values, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage")
 
 def test_find_detail_value_valid_transmission():
     values = [
@@ -463,7 +445,7 @@ def test_find_detail_value_valid_transmission():
         "Four speed manual transmission",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "Four speed manual transmission"
+    assert transform.find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "Four speed manual transmission"
 
 def test_find_detail_value_valid_tranaxle():
     values = [
@@ -471,7 +453,7 @@ def test_find_detail_value_valid_tranaxle():
         "6-Speed manual transaxle",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "6-Speed manual transaxle"
+    assert transform.find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "6-Speed manual transaxle"
 
 def test_find_detail_value_valid_gearbox():
     values = [
@@ -479,7 +461,7 @@ def test_find_detail_value_valid_gearbox():
         "Automatic gearbox",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "Automatic gearbox"
+    assert transform.find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "Automatic gearbox"
 
 def test_find_detail_value_transmission_not_found():
     values = [
@@ -487,28 +469,28 @@ def test_find_detail_value_transmission_not_found():
         "3.2-Liter S54 Inline-Six",
     ]
     with pytest.raises(ValueError, match="Could not parse Transmission"):
-        find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission")
+        transform.find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission")
 
 def test_extract_vin_valid():
     raw_vin = "Chassis: WBSBL93414PN57203"
-    assert extract_vin(raw_vin) == "WBSBL93414PN57203"
+    assert transform.extract_vin(raw_vin) == "WBSBL93414PN57203"
 
 def test_extract_vin_invalid():
     raw_vin = "Chassis: INVALID VIN"
     with pytest.raises(ValueError, match="Could not parse VIN"):
-        extract_vin(raw_vin)
+        transform.extract_vin(raw_vin)
 
 def test_extract_vin_no_chassis_prefix():
     raw_vin = "WBSBL93414PN57203"
     with pytest.raises(ValueError, match="Could not parse VIN"):
-        extract_vin(raw_vin)
+        transform.extract_vin(raw_vin)
 
 def test_find_detail_value_VIN_valid():
     values = [
         "Chassis: WBSBL93414PN57203",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert find_detail_value(values, r"^Chassis:", "VIN") == "Chassis: WBSBL93414PN57203"
+    assert transform.find_detail_value(values, r"^Chassis:", "VIN") == "Chassis: WBSBL93414PN57203"
 
 def test_find_detail_value_VIN_invalid():
     values = [
@@ -516,7 +498,7 @@ def test_find_detail_value_VIN_invalid():
         "3.2-Liter S54 Inline-Six",
     ]
     with pytest.raises(ValueError, match="Could not parse VIN"):
-        find_detail_value(values, r"^Chassis:", "VIN")
+        transform.find_detail_value(values, r"^Chassis:", "VIN")
 
 def test_extact_bid_price_valid_product_data():
     html_content = """
@@ -530,7 +512,7 @@ def test_extact_bid_price_valid_product_data():
         "@type": "Product",
         "offers":{"@type":"Offer","priceCurrency":"USD","price":19750}
     }
-    price = extract_sale_price(soup, product_data)
+    price = transform.extract_sale_price(soup, product_data)
     assert price == 19750
 
 def test_extract_bid_price_valid_bid_label():
@@ -548,7 +530,7 @@ def test_extract_bid_price_valid_bid_label():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     product_data = {}
-    price = extract_sale_price(soup, product_data)
+    price = transform.extract_sale_price(soup, product_data)
     assert price == 19750
 
 def test_extract_bid_price_no_price_info():
@@ -567,7 +549,7 @@ def test_extract_bid_price_no_price_info():
     soup = BeautifulSoup(html_content, "html.parser")
     product_data = {}
     with pytest.raises(ValueError, match="Could not parse sale price"):
-        extract_sale_price(soup, product_data)
+        transform.extract_sale_price(soup, product_data)
 
 def test_extract_sold_status_valid():
     html_content = """
@@ -582,7 +564,7 @@ def test_extract_sold_status_valid():
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    assert extract_sold_status(soup) == True
+    assert transform.extract_sold_status(soup) == True
 
 def test_extract_sold_status_not_sold():
     html_content = """
@@ -597,7 +579,7 @@ def test_extract_sold_status_not_sold():
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    assert extract_sold_status(soup) == False
+    assert transform.extract_sold_status(soup) == False
 
 def test_extract_sold_status_no_available_info():
     html_content = """
@@ -610,7 +592,7 @@ def test_extract_sold_status_no_available_info():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not parse sold status"):
-        extract_sold_status(soup)
+        transform.extract_sold_status(soup)
 
 
 def test_extract_auction_end_text_valid():
@@ -624,7 +606,7 @@ def test_extract_auction_end_text_valid():
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    end_text = extract_auction_end_date(soup)
+    end_text = transform.extract_auction_end_date(soup)
     assert end_text == "2026-03-30"
 
 def test_extract_auction_end_text_no_date_tag():
@@ -638,7 +620,7 @@ def test_extract_auction_end_text_no_date_tag():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Could not find sale date"):
-        extract_auction_end_date(soup)
+        transform.extract_auction_end_date(soup)
 
 def test_extract_auction_end_text_no_timestamp():
     html_content = """
@@ -652,16 +634,16 @@ def test_extract_auction_end_text_no_timestamp():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     with pytest.raises(ValueError, match="Sale date missing data-timestamp"):
-        extract_auction_end_date(soup)
+        transform.extract_auction_end_date(soup)
 
 def test_normalize_transmission_manual():
-    assert normalize_transmission("Four speed manual transmission") == "manual"
-    assert normalize_transmission("6-Speed manual transaxle") == "manual"
+    assert transform.normalize_transmission("Four speed manual transmission") == "manual"
+    assert transform.normalize_transmission("6-Speed manual transaxle") == "manual"
 
 def test_normalize_transmission_automatic():
-    assert normalize_transmission("six speed gearbox") == "automatic"
-    assert normalize_transmission("5-Speed automatic transmission") == "automatic"  
+    assert transform.normalize_transmission("six speed gearbox") == "automatic"
+    assert transform.normalize_transmission("5-Speed automatic transmission") == "automatic"  
 
 def test_normalize_transmission_empty():
     with pytest.raises(ValueError, match="Could not normalize transmission"):
-        normalize_transmission("")
+        transform.normalize_transmission("")

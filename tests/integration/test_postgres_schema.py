@@ -13,7 +13,7 @@ validated and refined.
 """
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCHEMA_PATH = REPO_ROOT / "sql" / "schema.sql"
+SCHEMA_PATH = REPO_ROOT / "app" / "db" / "schema.sql"
 
 
 def test_schema_sql_applies_in_isolated_postgres_container():

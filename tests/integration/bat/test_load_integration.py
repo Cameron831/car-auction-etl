@@ -16,7 +16,7 @@ validated and refined.
 """
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_PATH = REPO_ROOT / "sql" / "schema.sql"
+SCHEMA_PATH = REPO_ROOT / "app" / "db" / "schema.sql"
 
 
 def test_load_listing_upserts_into_postgres_container(monkeypatch):

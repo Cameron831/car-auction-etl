@@ -10,7 +10,7 @@ from app.sources.bat.ingest import save_listing_html
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_PATH = REPO_ROOT / "sql" / "schema.sql"
+SCHEMA_PATH = REPO_ROOT / "app" / "db" / "schema.sql"
 
 
 def test_save_listing_html_upserts_raw_html_in_postgres_container(monkeypatch):

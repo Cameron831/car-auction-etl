@@ -11,8 +11,65 @@ from app.sources.bat.transform import transform_listing_html
 
 LISTING_ID = "2004-bmw-m3-coupe-232"
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SCHEMA_PATH = REPO_ROOT / "sql" / "schema.sql"
-FIXTURE_PATH = REPO_ROOT / "data" / "raw" / "bat" / f"{LISTING_ID}.html"
+SCHEMA_PATH = REPO_ROOT / "app" / "db" / "schema.sql"
+RAW_LISTING_HTML = """
+<html>
+    <head>
+        <script type="application/ld+json">
+        {
+            "@context": "http://schema.org",
+            "@type": "Product",
+            "name": "2004 BMW E46 M3",
+            "offers": {
+                "@type": "Offer",
+                "priceCurrency": "USD",
+                "price": 19750
+            }
+        }
+        </script>
+    </head>
+    <body>
+        <button class="group-title">
+            <strong class="group-title-label">Make</strong>
+            BMW
+        </button>
+        <button class="group-title">
+            <strong class="group-title-label">Model</strong>
+            BMW E46 M3
+        </button>
+        <div class="item">
+            <strong>Listing Details</strong>
+            <ul>
+                <li>Chassis: WBSBL93414PN57203</li>
+                <li>178k Miles</li>
+                <li>3.2-Liter S54 Inline-Six</li>
+                <li>Six-Speed Manual Transmission</li>
+                <li>Limited-Slip Differential</li>
+                <li>Carbon Black Metallic Paint</li>
+                <li>Cinnamon Nappa Leather Upholstery</li>
+                <li>18" Apex EC-7 Wheels</li>
+                <li>Xenon Headlights</li>
+                <li>Glass Sunroof</li>
+                <li>Parking Sensors</li>
+                <li>Heated Power-Adjustable Front Seats</li>
+                <li>CD Stereo</li>
+                <li>Harman Kardon Sound System</li>
+                <li>Automatic Climate Control</li>
+                <li>Window Sticker</li>
+                <li>Spare Parts</li>
+            </ul>
+        </div>
+        <div class="listing-available">
+            <div class="listing-available-info">
+                <span class="info-value noborder-tiny">
+                    Sold for <strong>USD $19,750</strong>
+                </span>
+            </div>
+            <span class="date date-localize" data-timestamp="1774898451"></span>
+        </div>
+    </body>
+</html>
+"""
 
 EXPECTED_TRANSFORMED_DATA = {
     "source_site": "bringatrailer",
@@ -88,7 +145,7 @@ def test_transform_listing_html_reads_raw_html_from_postgres_container(
         )
         _wait_for_database_url(database_url)
         monkeypatch.setenv("DATABASE_URL", database_url)
-        _insert_raw_html(database_url, LISTING_ID, FIXTURE_PATH.read_text(encoding="utf-8"))
+        _insert_raw_html(database_url, LISTING_ID, RAW_LISTING_HTML)
 
         transformed_data = transform_listing_html(LISTING_ID)
         assert transformed_data == EXPECTED_TRANSFORMED_DATA
