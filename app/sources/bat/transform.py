@@ -1,19 +1,45 @@
 import json
+import os
 import re
 from datetime import datetime
-from pathlib import Path
 from bs4 import BeautifulSoup
+import psycopg
 
-RAW_HTML_DIR = Path(__file__).resolve().parents[3] / "data" / "raw" / "bat"
-TRANSFORMED_HTML_DIR = Path(__file__).resolve().parents[3] / "data" / "transformed" / "bat"
 
 SOURCE_SITE = "bringatrailer"
 
+SELECT_RAW_LISTING_HTML_SQL = """
+SELECT raw_html
+FROM raw_listing_html
+WHERE source_site = %(source_site)s
+  AND source_listing_id = %(source_listing_id)s
+"""
+
+
 def load_listing_html(listing_id):
-    file_path = RAW_HTML_DIR / f"{listing_id}.html"
-    if not file_path.exists():
-        raise FileNotFoundError(f"Raw HTML file not found for listing ID: {listing_id}")
-    return file_path.read_text(encoding="utf-8")
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL must be set")
+
+    params = build_raw_listing_lookup_params(listing_id)
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(SELECT_RAW_LISTING_HTML_SQL, params)
+            row = cur.fetchone()
+
+    if row is None:
+        raise LookupError(f"Raw HTML record not found for listing ID: {listing_id}")
+
+    return row[0]
+
+
+def build_raw_listing_lookup_params(listing_id):
+    return {
+        "source_site": SOURCE_SITE,
+        "source_listing_id": listing_id,
+    }
+
 
 def transform_listing_html(listing_id):
     html = load_listing_html(listing_id)
@@ -50,12 +76,6 @@ def transform_listing_html(listing_id):
         "listing_details_raw": listing_details,
     }
     return transformed_data
-
-def store_transformed_data(listing_id, data):
-    file_path = TRANSFORMED_HTML_DIR / f"{listing_id}.json"
-    file_path.parent.mkdir(parents=True, exist_ok=True)
-    file_path.write_text(json.dumps(data, default=str, indent=2), encoding="utf-8")
-    return file_path
 
 def get_product_json_ld(soup):
     for script_tag in soup.find_all("script", attrs={"type": "application/ld+json"}):

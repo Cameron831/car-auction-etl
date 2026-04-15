@@ -26,7 +26,7 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
 
 
 def test_load_listing_executes_upsert_with_expected_conflict_target(mocker):
-    calls = {}
+    calls = {"executions": []}
 
     class FakeCursor:
         def __enter__(self):
@@ -36,8 +36,7 @@ def test_load_listing_executes_upsert_with_expected_conflict_target(mocker):
             return False
 
         def execute(self, sql, params):
-            calls["sql"] = sql
-            calls["params"] = params
+            calls["executions"].append((sql, params))
 
     class FakeConnection:
         def __enter__(self):
@@ -61,15 +60,23 @@ def test_load_listing_executes_upsert_with_expected_conflict_target(mocker):
 
     load.load_listing(_transformed_listing())
 
+    listing_sql, listing_params = calls["executions"][0]
+    processed_sql, processed_params = calls["executions"][1]
+
     assert calls["database_url"] == "postgresql://user:pass@localhost/db"
-    assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in calls["sql"]
-    assert "updated_at = NOW()" in calls["sql"]
-    assert calls["params"]["source_listing_id"] == "test-listing"
-    assert calls["params"]["listing_details_raw"].obj == [
+    assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in listing_sql
+    assert "updated_at = NOW()" in listing_sql
+    assert listing_params["source_listing_id"] == "test-listing"
+    assert listing_params["listing_details_raw"].obj == [
         "Chassis: WBSBL93414PN57203",
         "50,250 Miles",
         "6-Speed Manual Transmission",
     ]
+    assert "UPDATE raw_listing_html" in processed_sql
+    assert "SET processed = TRUE" in processed_sql
+    assert "source_site = %(source_site)s" in processed_sql
+    assert "source_listing_id = %(source_listing_id)s" in processed_sql
+    assert processed_params is listing_params
 
 
 def test_load_listing_requires_database_url(mocker):

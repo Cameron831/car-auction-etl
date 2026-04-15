@@ -1,5 +1,6 @@
 import pytest
 import requests
+from app.sources.bat import ingest
 from app.sources.bat.ingest import fetch_listing_html, save_listing_html
 
 # test that the function returns the correct HTML and that the request is made with the correct URL
@@ -40,27 +41,80 @@ def test_fetch_listing_html_connection_error(mocker):
         fetch_listing_html("test-id")
 
 
-def test_save_listing_html_writes_file_and_returns_path(tmp_path, mocker):
-    # redirect raw HTML storage into pytest's temporary directory
-    mocker.patch("app.sources.bat.ingest.RAW_HTML_DIR", tmp_path / "data" / "raw" / "bat")
+def test_build_raw_listing_html_params_maps_listing_to_schema_columns():
+    params = ingest.build_raw_listing_html_params(
+        "test-id",
+        "<html>Test</html>",
+        "https://example.test/listing/test-id",
+    )
 
-    # save test HTML and capture the returned file path
-    saved_path = save_listing_html("test-id", "<html>Test</html>")
+    assert params == {
+        "source_site": "bringatrailer",
+        "source_listing_id": "test-id",
+        "url": "https://example.test/listing/test-id",
+        "raw_html": "<html>Test</html>",
+    }
 
-    # assert that the file was written to the expected location with the expected contents
-    assert saved_path == tmp_path / "data" / "raw" / "bat" / "test-id.html"
-    assert saved_path.exists()
-    assert saved_path.read_text(encoding="utf-8") == "<html>Test</html>"
+
+def test_build_raw_listing_html_params_defaults_bat_url():
+    params = ingest.build_raw_listing_html_params("test-id", "<html>Test</html>")
+
+    assert params["url"] == "https://bringatrailer.com/listing/test-id/"
 
 
-def test_save_listing_html_overwrites_existing_file(tmp_path, mocker):
-    # redirect raw HTML storage into pytest's temporary directory
-    mocker.patch("app.sources.bat.ingest.RAW_HTML_DIR", tmp_path / "data" / "raw" / "bat")
+def test_save_listing_html_executes_upsert_with_expected_conflict_target(mocker):
+    calls = {}
 
-    # save the same listing twice to verify that the second write overwrites the first
-    first_path = save_listing_html("test-id", "<html>First</html>")
-    second_path = save_listing_html("test-id", "<html>Second</html>")
+    class FakeCursor:
+        def __enter__(self):
+            return self
 
-    # assert that both saves point to the same file and that the latest contents were written
-    assert first_path == second_path
-    assert second_path.read_text(encoding="utf-8") == "<html>Second</html>"
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["sql"] = sql
+            calls["params"] = params
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self):
+            return FakeCursor()
+
+    def fake_connect(database_url):
+        calls["database_url"] = database_url
+        return FakeConnection()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(ingest.psycopg, "connect", side_effect=fake_connect)
+
+    save_listing_html(
+        "test-id",
+        "<html>Test</html>",
+        "https://example.test/listing/test-id",
+    )
+
+    assert calls["database_url"] == "postgresql://user:pass@localhost/db"
+    assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in calls["sql"]
+    assert "processed = FALSE" in calls["sql"]
+    assert calls["params"] == {
+        "source_site": "bringatrailer",
+        "source_listing_id": "test-id",
+        "url": "https://example.test/listing/test-id",
+        "raw_html": "<html>Test</html>",
+    }
+
+
+def test_save_listing_html_requires_database_url(mocker):
+    mocker.patch.dict("os.environ", {}, clear=True)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL must be set"):
+        save_listing_html("test-id", "<html>Test</html>")

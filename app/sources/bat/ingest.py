@@ -1,9 +1,30 @@
-from pathlib import Path
+import os
 
+import psycopg
 import requests
 
 
-RAW_HTML_DIR = Path(__file__).resolve().parents[3] / "data" / "raw" / "bat"
+SOURCE_SITE = "bringatrailer"
+
+UPSERT_RAW_LISTING_HTML_SQL = """
+INSERT INTO raw_listing_html (
+    source_site,
+    source_listing_id,
+    url,
+    raw_html,
+    processed
+) VALUES (
+    %(source_site)s,
+    %(source_listing_id)s,
+    %(url)s,
+    %(raw_html)s,
+    FALSE
+)
+ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
+    url = EXCLUDED.url,
+    raw_html = EXCLUDED.raw_html,
+    processed = FALSE
+"""
 
 
 def fetch_listing_html(id):
@@ -13,8 +34,22 @@ def fetch_listing_html(id):
     return response.text
 
 
-def save_listing_html(listing_id, html):
-    RAW_HTML_DIR.mkdir(parents=True, exist_ok=True)
-    file_path = RAW_HTML_DIR / f"{listing_id}.html"
-    file_path.write_text(html, encoding="utf-8", newline="")
-    return file_path
+def save_listing_html(listing_id, html, url=None):
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL must be set")
+
+    params = build_raw_listing_html_params(listing_id, html, url)
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(UPSERT_RAW_LISTING_HTML_SQL, params)
+
+
+def build_raw_listing_html_params(listing_id, html, url=None):
+    return {
+        "source_site": SOURCE_SITE,
+        "source_listing_id": listing_id,
+        "url": url or f"https://bringatrailer.com/listing/{listing_id}/",
+        "raw_html": html,
+    }

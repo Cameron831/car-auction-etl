@@ -1,7 +1,7 @@
-import json
 from bs4 import BeautifulSoup
 import pytest
 
+from app.sources.bat import transform
 from app.sources.bat.transform import (
     extract_auction_end_date,
     extract_group_value,
@@ -18,82 +18,107 @@ from app.sources.bat.transform import (
     parse_mileage,
     parse_model,
     parse_year,
-    store_transformed_data,
     transform_listing_html,
 )
 
-def test_load_listing_html(tmp_path, mocker):
-    # redirect raw HTML storage into pytest's temporary directory
-    mocker.patch("app.sources.bat.transform.RAW_HTML_DIR", tmp_path / "data" / "raw" / "bat")
+def test_build_raw_listing_lookup_params_maps_listing_to_schema_columns():
+    params = transform.build_raw_listing_lookup_params("test-id")
 
-    # create a test HTML file to load
-    test_file = tmp_path / "data" / "raw" / "bat" / "test-id.html"
-    test_file.parent.mkdir(parents=True, exist_ok=True)
-    test_file.write_text("<html>Test</html>", encoding="utf-8")
+    assert params == {
+        "source_site": "bringatrailer",
+        "source_listing_id": "test-id",
+    }
 
-    # call the function being tested and assert that the loaded HTML is correct
+
+def test_load_listing_html_retrieves_raw_html_from_postgres(mocker):
+    calls = {}
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["sql"] = sql
+            calls["params"] = params
+
+        def fetchone(self):
+            return ("<html>Test</html>",)
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self):
+            return FakeCursor()
+
+    def fake_connect(database_url):
+        calls["database_url"] = database_url
+        return FakeConnection()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(transform.psycopg, "connect", side_effect=fake_connect)
+
     html = load_listing_html("test-id")
+
     assert html == "<html>Test</html>"
+    assert calls["database_url"] == "postgresql://user:pass@localhost/db"
+    assert "FROM raw_listing_html" in calls["sql"]
+    assert "source_site = %(source_site)s" in calls["sql"]
+    assert "source_listing_id = %(source_listing_id)s" in calls["sql"]
+    assert calls["params"] == {
+        "source_site": "bringatrailer",
+        "source_listing_id": "test-id",
+    }
 
-def test_load_listing_html_file_not_found(tmp_path, mocker):
-    # redirect raw HTML storage into pytest's temporary directory
-    mocker.patch("app.sources.bat.transform.RAW_HTML_DIR", tmp_path / "data" / "raw" / "bat")
 
-    # assert that a FileNotFoundError is raised when the file does not exist
-    with pytest.raises(FileNotFoundError, match="Raw HTML file not found for listing ID: missing-id"):
+def test_load_listing_html_missing_record_raises_clear_error(mocker):
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            return None
+
+        def fetchone(self):
+            return None
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self):
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(transform.psycopg, "connect", return_value=FakeConnection())
+
+    with pytest.raises(LookupError, match="Raw HTML record not found for listing ID: missing-id"):
         load_listing_html("missing-id")
 
-def test_store_transformed_data_writes_file(tmp_path, mocker):
-    # redirect transformed data storage into pytest's temporary directory
-    mocker.patch("app.sources.bat.transform.TRANSFORMED_HTML_DIR", tmp_path / "data" / "transformed" / "bat")
 
-    # create some test transformed data to store
-    test_data = {"key": "value"}
+def test_load_listing_html_requires_database_url(mocker):
+    mocker.patch.dict("os.environ", {}, clear=True)
 
-    # call the function being tested and assert that the file was written with the correct contents
-    saved_path = store_transformed_data("test-id", test_data)
-    assert saved_path == tmp_path / "data" / "transformed" / "bat" / "test-id.json"
-    assert saved_path.exists()
-    assert saved_path.read_text(encoding="utf-8") == json.dumps(test_data, default=str, indent=2)
-
-def test_store_transformed_data_overwrites_existing_file(tmp_path, mocker):
-    # redirect transformed data storage into pytest's temporary directory
-    mocker.patch("app.sources.bat.transform.TRANSFORMED_HTML_DIR", tmp_path / "data" / "transformed" / "bat")
-
-    # create some test transformed data to store
-    test_data_1 = {"key": "value1"}
-    test_data_2 = {"key": "value2"}
-
-    # store the first set of data and assert that it was written correctly
-    saved_path_1 = store_transformed_data("test-id", test_data_1)
-    assert saved_path_1 == tmp_path / "data" / "transformed" / "bat" / "test-id.json"
-    assert saved_path_1.exists()
-    assert saved_path_1.read_text(encoding="utf-8") == json.dumps(test_data_1, default=str, indent=2)
-    # store the second set of data and assert that it overwrote the first
-    saved_path_2 = store_transformed_data("test-id", test_data_2)
-    assert saved_path_2 == tmp_path / "data" / "transformed" / "bat" / "test-id.json"
-    assert saved_path_2.exists()
-    assert saved_path_2.read_text(encoding="utf-8") == json.dumps(test_data_2, default=str, indent=2)
-    
-def test_store_transformed_data_creates_parent_directory(tmp_path, mocker):
-    # create a nested target directory path that does not exist
-    target_dir = tmp_path / "nested" / "transformed" / "bat"
-    # redirect transformed data storage into pytest's temporary directory
-    mocker.patch("app.sources.bat.transform.TRANSFORMED_HTML_DIR", target_dir)
-
-    # assert that the target directory does not exist before calling the function
-    assert not target_dir.exists()
-
-    # create some test transformed data to store
-    test_data = {"key": "value"}
-
-    # call the function being tested and assert that the parent directory was created and the file was writte
-    saved_path = store_transformed_data("test-id", test_data)
-    assert target_dir.exists()
-    assert target_dir.is_dir()
-    assert saved_path == target_dir / "test-id.json"
-    assert saved_path.exists()
-    assert json.loads(saved_path.read_text(encoding="utf-8")) == {"key": "value"}
+    with pytest.raises(RuntimeError, match="DATABASE_URL must be set"):
+        load_listing_html("test-id")
 
 def test_get_product_json_ld_returns_product_data(tmp_path):
     # create a test HTML file with a valid JSON-LD script tag

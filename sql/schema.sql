@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS raw_listing_html (
     source_listing_id TEXT NOT NULL,
     url TEXT NOT NULL,
     raw_html TEXT NOT NULL,
-    processed BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    processed BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE (source_site, source_listing_id)
-)
+);
