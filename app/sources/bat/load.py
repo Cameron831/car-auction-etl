@@ -49,6 +49,13 @@ ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
     updated_at = NOW()
 """
 
+MARK_RAW_LISTING_PROCESSED_SQL = """
+UPDATE raw_listing_html
+SET processed = TRUE
+WHERE source_site = %(source_site)s
+  AND source_listing_id = %(source_listing_id)s
+"""
+
 
 def load_listing(transformed_listing):
     database_url = os.environ.get("DATABASE_URL")
@@ -59,6 +66,7 @@ def load_listing(transformed_listing):
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
             cur.execute(INSERT_LISTING_SQL, params)
+            cur.execute(MARK_RAW_LISTING_PROCESSED_SQL, params)
 
 
 def build_listing_params(transformed_listing):

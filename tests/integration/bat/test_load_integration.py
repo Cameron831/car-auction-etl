@@ -54,7 +54,34 @@ def test_load_listing_upserts_into_postgres_container(monkeypatch):
         database_url = (
             f"postgresql://auction_user:localdevpassword@127.0.0.1:{port}/auction_etl"
         )
+        _wait_for_database_url(database_url)
         monkeypatch.setenv("DATABASE_URL", database_url)
+
+        with psycopg.connect(database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO raw_listing_html (
+                        source_site,
+                        source_listing_id,
+                        url,
+                        raw_html,
+                        processed
+                    ) VALUES (
+                        %s,
+                        %s,
+                        %s,
+                        %s,
+                        FALSE
+                    )
+                    """,
+                    (
+                        "bringatrailer",
+                        "test-listing",
+                        "https://bringatrailer.com/listing/test-listing/",
+                        "<html>Raw</html>",
+                    ),
+                )
 
         listing = _transformed_listing(sale_price=19750, details=["Original detail"])
         load_listing(listing)
@@ -85,10 +112,20 @@ def test_load_listing_upserts_into_postgres_container(monkeypatch):
                     ("bringatrailer", "test-listing"),
                 )
                 (listing_details_raw,) = cur.fetchone()
+                cur.execute(
+                    """
+                    SELECT processed
+                    FROM raw_listing_html
+                    WHERE source_site = %s AND source_listing_id = %s
+                    """,
+                    ("bringatrailer", "test-listing"),
+                )
+                (raw_processed,) = cur.fetchone()
 
         assert row_count == 1
         assert sale_price == 20500
         assert listing_details_raw == ["Updated detail", "6-Speed Manual Transmission"]
+        assert raw_processed is True
     finally:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
 
@@ -152,6 +189,22 @@ def _wait_for_postgres(container_name):
 def _host_port(container_name):
     result = _run(["docker", "port", container_name, "5432/tcp"])
     return result.stdout.rsplit(":", maxsplit=1)[-1].strip()
+
+
+def _wait_for_database_url(database_url):
+    deadline = time.monotonic() + 30
+    last_error = ""
+    while time.monotonic() < deadline:
+        try:
+            with psycopg.connect(database_url) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1;")
+            return
+        except psycopg.OperationalError as exc:
+            last_error = str(exc)
+            time.sleep(1)
+
+    pytest.fail(f"Postgres host connection did not become ready: {last_error}")
 
 
 def _run(command):
