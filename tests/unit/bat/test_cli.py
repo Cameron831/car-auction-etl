@@ -1,0 +1,81 @@
+import pytest
+
+from app.sources.bat import cli
+
+
+def test_ingest_command_fetches_and_saves_listing_html(mocker):
+    fetch_listing_html = mocker.patch(
+        "app.sources.bat.cli.fetch_listing_html",
+        return_value="<html>Test</html>",
+    )
+    save_listing_html = mocker.patch("app.sources.bat.cli.save_listing_html")
+
+    cli.main(["ingest", "--listing-id", "test-id"])
+
+    fetch_listing_html.assert_called_once_with("test-id")
+    save_listing_html.assert_called_once_with("test-id", "<html>Test</html>")
+
+
+def test_transform_command_transforms_listing_html(mocker):
+    transform_listing_html = mocker.patch(
+        "app.sources.bat.cli.transform_listing_html",
+        return_value={"listing_id": "test-id"},
+    )
+
+    cli.main(["transform", "--listing-id", "test-id"])
+
+    transform_listing_html.assert_called_once_with("test-id")
+
+
+def test_load_command_transforms_and_loads_listing(mocker):
+    transformed_listing = {"listing_id": "test-id"}
+    transform_listing_html = mocker.patch(
+        "app.sources.bat.cli.transform_listing_html",
+        return_value=transformed_listing,
+    )
+    load_listing = mocker.patch("app.sources.bat.cli.load_listing")
+
+    cli.main(["load", "--listing-id", "test-id"])
+
+    transform_listing_html.assert_called_once_with("test-id")
+    load_listing.assert_called_once_with(transformed_listing)
+
+
+def test_run_command_executes_ingest_transform_load_in_order(mocker):
+    calls = []
+    transformed_listing = {"listing_id": "test-id"}
+
+    mocker.patch(
+        "app.sources.bat.cli.fetch_listing_html",
+        side_effect=lambda listing_id: calls.append(("fetch", listing_id)) or "<html>Test</html>",
+    )
+    mocker.patch(
+        "app.sources.bat.cli.save_listing_html",
+        side_effect=lambda listing_id, html: calls.append(("save", listing_id, html)),
+    )
+    mocker.patch(
+        "app.sources.bat.cli.transform_listing_html",
+        side_effect=lambda listing_id: calls.append(("transform", listing_id)) or transformed_listing,
+    )
+    mocker.patch(
+        "app.sources.bat.cli.load_listing",
+        side_effect=lambda listing: calls.append(("load", listing)),
+    )
+
+    cli.main(["run", "--listing-id", "test-id"])
+
+    assert calls == [
+        ("fetch", "test-id"),
+        ("save", "test-id", "<html>Test</html>"),
+        ("transform", "test-id"),
+        ("load", transformed_listing),
+    ]
+
+
+@pytest.mark.parametrize("command", ["ingest", "transform", "load", "run"])
+def test_commands_require_listing_id(command, capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main([command])
+
+    assert exc_info.value.code == 2
+    assert "--listing-id" in capsys.readouterr().err
