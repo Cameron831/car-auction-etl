@@ -19,10 +19,10 @@ Implementation Steps:
 - [x] Pull raw html from a URL
 - [x] Store raw html in local folder
 - [x] Parse html for data outlined in schema
-- [ ] Basic CLI
-- [ ] Structured error handling
+- [x] Basic CLI
+- [x] Structured error handling
 - [x] Postgres/Docker for Postgres
-- [ ] Store data into Postgres
+- [x] Store data into Postgres
 
 ## Data Model
 - source_site: string
