@@ -33,7 +33,7 @@ def test_transform_command_transforms_listing_html(mocker):
     transform_listing_html.assert_called_once_with("test-id")
 
 
-def test_transform_command_logs_failure_and_reraises_original_exception(mocker, caplog):
+def test_transform_command_logs_failure_context_without_traceback_and_reraises(mocker, caplog):
     error = RuntimeError("transform failed")
     mocker.patch(
         "app.sources.bat.cli.transform_listing_html",
@@ -47,6 +47,8 @@ def test_transform_command_logs_failure_and_reraises_original_exception(mocker, 
     assert exc_info.value is error
     assert "BAT transform command started for listing_id=test-id" in caplog.text
     assert "BAT transform command failed for listing_id=test-id" in caplog.text
+    assert "Traceback" not in caplog.text
+    assert "RuntimeError: transform failed" not in caplog.text
 
 
 def test_load_command_transforms_and_loads_listing(mocker):

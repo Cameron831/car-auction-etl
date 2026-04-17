@@ -65,7 +65,7 @@ def main(argv=None):
         elif args.command == "run":
             run_listing(args.listing_id)
     except Exception:
-        logger.exception("BAT %s command failed for listing_id=%s", args.command, args.listing_id)
+        logger.error("BAT %s command failed for listing_id=%s", args.command, args.listing_id)
         raise
     logger.info("BAT %s command completed for listing_id=%s", args.command, args.listing_id)
 
