@@ -1,19 +1,25 @@
+import logging
+
 import pytest
 
 from app.sources.bat import cli
 
 
-def test_ingest_command_fetches_and_saves_listing_html(mocker):
+def test_ingest_command_fetches_and_saves_listing_html(mocker, caplog):
     fetch_listing_html = mocker.patch(
         "app.sources.bat.cli.fetch_listing_html",
         return_value="<html>Test</html>",
     )
     save_listing_html = mocker.patch("app.sources.bat.cli.save_listing_html")
 
+    caplog.set_level(logging.INFO)
     cli.main(["ingest", "--listing-id", "test-id"])
 
     fetch_listing_html.assert_called_once_with("test-id")
     save_listing_html.assert_called_once_with("test-id", "<html>Test</html>")
+    assert "BAT ingest command started for listing_id=test-id" in caplog.text
+    assert "BAT ingest command completed for listing_id=test-id" in caplog.text
+    assert "<html>Test</html>" not in caplog.text
 
 
 def test_transform_command_transforms_listing_html(mocker):
@@ -25,6 +31,22 @@ def test_transform_command_transforms_listing_html(mocker):
     cli.main(["transform", "--listing-id", "test-id"])
 
     transform_listing_html.assert_called_once_with("test-id")
+
+
+def test_transform_command_logs_failure_and_reraises_original_exception(mocker, caplog):
+    error = RuntimeError("transform failed")
+    mocker.patch(
+        "app.sources.bat.cli.transform_listing_html",
+        side_effect=error,
+    )
+
+    caplog.set_level(logging.INFO)
+    with pytest.raises(RuntimeError) as exc_info:
+        cli.main(["transform", "--listing-id", "test-id"])
+
+    assert exc_info.value is error
+    assert "BAT transform command started for listing_id=test-id" in caplog.text
+    assert "BAT transform command failed for listing_id=test-id" in caplog.text
 
 
 def test_load_command_transforms_and_loads_listing(mocker):

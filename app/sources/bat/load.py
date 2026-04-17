@@ -1,7 +1,10 @@
+import logging
 import os
 
 import psycopg
 from psycopg.types.json import Jsonb
+
+logger = logging.getLogger(__name__)
 
 
 INSERT_LISTING_SQL = """
@@ -66,7 +69,9 @@ def load_listing(transformed_listing):
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
             cur.execute(INSERT_LISTING_SQL, params)
+            logger.info("Upserted BAT listing for listing_id=%s", params["source_listing_id"])
             cur.execute(MARK_RAW_LISTING_PROCESSED_SQL, params)
+            logger.info("Marked BAT raw listing processed for listing_id=%s", params["source_listing_id"])
 
 
 def build_listing_params(transformed_listing):
