@@ -282,6 +282,21 @@ def test_parse_model_valid():
     model = transform.parse_model(soup)
     assert model == "Model Name"
 
+def test_parse_model_valid_group_link():
+    html_content = """
+    <html>
+        <body>
+            <a class="group-link" href="https://bringatrailer.com/porsche/911-carrera-3-2/">
+                <strong class="group-title-label">Model</strong>
+                Porsche 911 Carrera 3.2
+            </a>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    model = transform.parse_model(soup)
+    assert model == "Porsche 911 Carrera 3.2"
+
 def test_parse_model_not_found():
     html_content = """
     <html>
@@ -311,6 +326,21 @@ def test_parse_make_valid():
     soup = BeautifulSoup(html_content, "html.parser")
     make = transform.parse_make(soup)
     assert make == "Make Name"
+
+def test_parse_make_valid_group_link():
+    html_content = """
+    <html>
+        <body>
+            <a class="group-link" href="https://bringatrailer.com/porsche/">
+                <strong class="group-title-label">Make</strong>
+                Porsche
+            </a>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    make = transform.parse_make(soup)
+    assert make == "Porsche"
 
 def test_parse_make_not_found():
     html_content = """
