@@ -127,16 +127,18 @@ def parse_make(soup):
     return extract_group_value(soup, "Make")
 
 def extract_group_value(soup: BeautifulSoup, label: str) -> str:
-    for button in soup.select("button.group-title"):
-        label_tag = button.select_one("strong.group-title-label")
-        if not label_tag:
-            continue
-
+    for label_tag in soup.select("strong.group-title-label"):
         if label_tag.get_text(strip=True) != label:
             continue
 
-        # Get the button text, then remove the label text from the front
-        full_text = button.get_text(" ", strip=True)
+        group_tag = (
+            label_tag.find_parent("button", class_="group-title")
+            or label_tag.find_parent("a", class_="group-link")
+        )
+        if not group_tag:
+            continue
+
+        full_text = group_tag.get_text(" ", strip=True)
         label_text = label_tag.get_text(" ", strip=True)
 
         value = full_text.removeprefix(label_text).strip()
