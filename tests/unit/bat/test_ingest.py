@@ -1,10 +1,12 @@
+import logging
+
 import pytest
 import requests
 from app.sources.bat import ingest
 from app.sources.bat.ingest import fetch_listing_html, save_listing_html
 
 # test that the function returns the correct HTML and that the request is made with the correct URL
-def test_fetch_listing_html(mocker):
+def test_fetch_listing_html(mocker, caplog):
     # create mock request
     mock_get = mocker.patch('app.sources.bat.ingest.requests.get')
     # set return value for mock request
@@ -12,11 +14,15 @@ def test_fetch_listing_html(mocker):
     mock_get.return_value.raise_for_status.return_value = None
 
     # call the function being tested
+    caplog.set_level(logging.INFO)
     response = fetch_listing_html("test-id")
 
     # assert that the response is correct and that the mock request was called with the correct URL
     assert response == "<html>Test</html>"
     mock_get.assert_called_once_with("https://bringatrailer.com/listing/test-id", timeout=10)
+    assert "Fetching BAT listing HTML for listing_id=test-id" in caplog.text
+    assert "Fetched BAT listing HTML for listing_id=test-id" in caplog.text
+    assert "<html>Test</html>" not in caplog.text
 
 # test that an HTTP error is raised when the request fails
 def test_fetch_listing_html_bad_response(mocker):
@@ -62,7 +68,7 @@ def test_build_raw_listing_html_params_defaults_bat_url():
     assert params["url"] == "https://bringatrailer.com/listing/test-id/"
 
 
-def test_save_listing_html_executes_upsert_with_expected_conflict_target(mocker):
+def test_save_listing_html_executes_upsert_with_expected_conflict_target(mocker, caplog):
     calls = {}
 
     class FakeCursor:
@@ -96,6 +102,7 @@ def test_save_listing_html_executes_upsert_with_expected_conflict_target(mocker)
     )
     mocker.patch.object(ingest.psycopg, "connect", side_effect=fake_connect)
 
+    caplog.set_level(logging.INFO)
     save_listing_html(
         "test-id",
         "<html>Test</html>",
@@ -111,6 +118,9 @@ def test_save_listing_html_executes_upsert_with_expected_conflict_target(mocker)
         "url": "https://example.test/listing/test-id",
         "raw_html": "<html>Test</html>",
     }
+    assert "Saved BAT raw listing HTML for listing_id=test-id" in caplog.text
+    assert "<html>Test</html>" not in caplog.text
+    assert "postgresql://user:pass@localhost/db" not in caplog.text
 
 
 def test_save_listing_html_requires_database_url(mocker):

@@ -1,3 +1,5 @@
+import logging
+
 from bs4 import BeautifulSoup
 import pytest
 
@@ -101,6 +103,31 @@ def test_load_listing_html_requires_database_url(mocker):
 
     with pytest.raises(RuntimeError, match="DATABASE_URL must be set"):
         transform.load_listing_html("test-id")
+
+
+def test_transform_listing_html_logs_success_without_raw_html(mocker, caplog):
+    mocker.patch.object(transform, "load_listing_html", return_value="<html>SENSITIVE_RAW_HTML</html>")
+    mocker.patch.object(transform, "get_product_json_ld", return_value={"name": "One Owner 2004 BMW M3"})
+    mocker.patch.object(transform, "extract_listing_title", return_value="2004 BMW M3")
+    mocker.patch.object(transform, "get_listing_details", return_value=["Chassis: WBSBL93414PN57203"])
+    mocker.patch.object(transform, "parse_year", return_value=2004)
+    mocker.patch.object(transform, "parse_make", return_value="BMW")
+    mocker.patch.object(transform, "parse_model", return_value="M3")
+    mocker.patch.object(transform, "find_detail_value", side_effect=["50,250 Miles", "Chassis: WBSBL93414PN57203", "6-Speed Manual Transmission"])
+    mocker.patch.object(transform, "parse_mileage", return_value=50250)
+    mocker.patch.object(transform, "extract_vin", return_value="WBSBL93414PN57203")
+    mocker.patch.object(transform, "extract_sale_price", return_value=19750)
+    mocker.patch.object(transform, "extract_sold_status", return_value=True)
+    mocker.patch.object(transform, "extract_auction_end_date", return_value="2026-03-30")
+    mocker.patch.object(transform, "normalize_transmission", return_value="manual")
+
+    caplog.set_level(logging.INFO)
+    transformed = transform.transform_listing_html("test-id")
+
+    assert transformed["listing_id"] == "test-id"
+    assert "Transforming BAT listing HTML for listing_id=test-id" in caplog.text
+    assert "Transformed BAT listing HTML for listing_id=test-id" in caplog.text
+    assert "SENSITIVE_RAW_HTML" not in caplog.text
 
 def test_get_product_json_ld_returns_product_data(tmp_path):
     # create a test HTML file with a valid JSON-LD script tag

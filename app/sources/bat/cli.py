@@ -1,4 +1,5 @@
 import argparse
+import logging
 
 from dotenv import load_dotenv
 
@@ -7,6 +8,8 @@ from app.sources.bat.load import load_listing
 from app.sources.bat.transform import transform_listing_html
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 def build_parser():
@@ -18,6 +21,13 @@ def build_parser():
         subparser.add_argument("--listing-id", required=True)
 
     return parser
+
+
+def configure_logging():
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s %(name)s %(message)s",
+    )
 
 
 def ingest_listing(listing_id):
@@ -41,16 +51,23 @@ def run_listing(listing_id):
 
 
 def main(argv=None):
+    configure_logging()
     args = build_parser().parse_args(argv)
 
-    if args.command == "ingest":
-        ingest_listing(args.listing_id)
-    elif args.command == "transform":
-        transform_listing(args.listing_id)
-    elif args.command == "load":
-        load_transformed_listing(args.listing_id)
-    elif args.command == "run":
-        run_listing(args.listing_id)
+    logger.info("BAT %s command started for listing_id=%s", args.command, args.listing_id)
+    try:
+        if args.command == "ingest":
+            ingest_listing(args.listing_id)
+        elif args.command == "transform":
+            transform_listing(args.listing_id)
+        elif args.command == "load":
+            load_transformed_listing(args.listing_id)
+        elif args.command == "run":
+            run_listing(args.listing_id)
+    except Exception:
+        logger.exception("BAT %s command failed for listing_id=%s", args.command, args.listing_id)
+        raise
+    logger.info("BAT %s command completed for listing_id=%s", args.command, args.listing_id)
 
 
 if __name__ == "__main__":

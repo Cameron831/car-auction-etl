@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 from app.sources.bat import load
@@ -25,7 +27,7 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
     ]
 
 
-def test_load_listing_executes_upsert_with_expected_conflict_target(mocker):
+def test_load_listing_executes_upsert_with_expected_conflict_target(mocker, caplog):
     calls = {"executions": []}
 
     class FakeCursor:
@@ -58,6 +60,7 @@ def test_load_listing_executes_upsert_with_expected_conflict_target(mocker):
     )
     mocker.patch.object(load.psycopg, "connect", side_effect=fake_connect)
 
+    caplog.set_level(logging.INFO)
     load.load_listing(_transformed_listing())
 
     listing_sql, listing_params = calls["executions"][0]
@@ -77,6 +80,9 @@ def test_load_listing_executes_upsert_with_expected_conflict_target(mocker):
     assert "source_site = %(source_site)s" in processed_sql
     assert "source_listing_id = %(source_listing_id)s" in processed_sql
     assert processed_params is listing_params
+    assert "Upserted BAT listing for listing_id=test-listing" in caplog.text
+    assert "Marked BAT raw listing processed for listing_id=test-listing" in caplog.text
+    assert "postgresql://user:pass@localhost/db" not in caplog.text
 
 
 def test_load_listing_requires_database_url(mocker):

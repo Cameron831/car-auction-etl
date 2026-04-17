@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import re
 from datetime import datetime
@@ -7,6 +8,7 @@ import psycopg
 
 
 SOURCE_SITE = "bringatrailer"
+logger = logging.getLogger(__name__)
 
 SELECT_RAW_LISTING_HTML_SQL = """
 SELECT raw_html
@@ -42,6 +44,7 @@ def build_raw_listing_lookup_params(listing_id):
 
 
 def transform_listing_html(listing_id):
+    logger.info("Transforming BAT listing HTML for listing_id=%s", listing_id)
     html = load_listing_html(listing_id)
     soup = BeautifulSoup(html, "html.parser")
     product_data = get_product_json_ld(soup)
@@ -75,6 +78,7 @@ def transform_listing_html(listing_id):
         "transmission": transmission,
         "listing_details_raw": listing_details,
     }
+    logger.info("Transformed BAT listing HTML for listing_id=%s", listing_id)
     return transformed_data
 
 def get_product_json_ld(soup):
