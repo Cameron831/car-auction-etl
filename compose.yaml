@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: auction_user
       POSTGRES_PASSWORD: localdevpassword
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - auction_postgres_data:/var/lib/postgresql/data
       - ./app/db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro

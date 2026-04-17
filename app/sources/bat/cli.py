@@ -1,8 +1,12 @@
 import argparse
 
+from dotenv import load_dotenv
+
 from app.sources.bat.ingest import fetch_listing_html, save_listing_html
 from app.sources.bat.load import load_listing
 from app.sources.bat.transform import transform_listing_html
+
+load_dotenv()
 
 
 def build_parser():
