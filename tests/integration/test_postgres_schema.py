@@ -135,6 +135,162 @@ def test_schema_sql_applies_in_isolated_postgres_container():
             """,
         )
         assert raw_defaults == ["false|t"]
+
+        discovered_column_rows = _psql(
+            container_name,
+            """
+            SELECT column_name || ':' || data_type || ':' || is_nullable
+            FROM information_schema.columns
+            WHERE table_name = 'discovered_listings'
+              AND column_name IN (
+                  'id',
+                  'source_site',
+                  'source_listing_id',
+                  'url',
+                  'title',
+                  'auction_end_date',
+                  'source_location',
+                  'eligible',
+                  'eligibility_reason',
+                  'discovered_at',
+                  'last_seen_at',
+                  'ingested_at'
+              )
+            ORDER BY column_name;
+            """,
+        )
+        assert discovered_column_rows == [
+            "auction_end_date:date:YES",
+            "discovered_at:timestamp with time zone:NO",
+            "eligibility_reason:text:YES",
+            "eligible:boolean:YES",
+            "id:bigint:NO",
+            "ingested_at:timestamp with time zone:YES",
+            "last_seen_at:timestamp with time zone:NO",
+            "source_listing_id:text:NO",
+            "source_location:text:YES",
+            "source_site:text:NO",
+            "title:text:YES",
+            "url:text:NO",
+        ]
+
+        discovered_unique_columns = _psql(
+            container_name,
+            """
+            SELECT string_agg(a.attname, ',' ORDER BY array_position(c.conkey, a.attnum))
+            FROM pg_constraint c
+            JOIN pg_class t ON t.oid = c.conrelid
+            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(c.conkey)
+            WHERE t.relname = 'discovered_listings'
+              AND c.contype = 'u'
+            GROUP BY c.oid;
+            """,
+        )
+        assert "source_site,source_listing_id" in discovered_unique_columns
+
+        discovered_defaults = _psql(
+            container_name,
+            """
+            WITH inserted AS (
+                INSERT INTO discovered_listings (
+                    source_site,
+                    source_listing_id,
+                    url
+                ) VALUES (
+                    'bringatrailer',
+                    'schema-discovery-test',
+                    'https://bringatrailer.com/listing/schema-discovery-test/'
+                )
+                RETURNING
+                    title,
+                    auction_end_date,
+                    source_location,
+                    eligible,
+                    eligibility_reason,
+                    discovered_at,
+                    last_seen_at,
+                    ingested_at
+            )
+            SELECT
+                title IS NULL,
+                auction_end_date IS NULL,
+                source_location IS NULL,
+                eligible IS NULL,
+                eligibility_reason IS NULL,
+                discovered_at IS NOT NULL,
+                last_seen_at IS NOT NULL,
+                ingested_at IS NULL
+            FROM inserted;
+            """,
+        )
+        assert discovered_defaults == ["t|t|t|t|t|t|t|t"]
+
+        discovered_upsert = _psql(
+            container_name,
+            """
+            WITH original AS (
+                SELECT discovered_at
+                FROM discovered_listings
+                WHERE source_site = 'bringatrailer'
+                  AND source_listing_id = 'schema-discovery-test'
+            ),
+            upserted AS (
+                INSERT INTO discovered_listings (
+                    source_site,
+                    source_listing_id,
+                    url,
+                    title,
+                    auction_end_date,
+                    source_location
+                ) VALUES (
+                    'bringatrailer',
+                    'schema-discovery-test',
+                    'https://bringatrailer.com/listing/schema-discovery-test-updated/',
+                    'Updated title',
+                    '2026-03-30',
+                    'CAN'
+                )
+                ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
+                    url = EXCLUDED.url,
+                    title = EXCLUDED.title,
+                    auction_end_date = EXCLUDED.auction_end_date,
+                    source_location = EXCLUDED.source_location,
+                    last_seen_at = NOW()
+                RETURNING
+                    id,
+                    url,
+                    title,
+                    auction_end_date,
+                    source_location,
+                    discovered_at,
+                    last_seen_at,
+                    eligible,
+                    eligibility_reason,
+                    ingested_at
+            )
+            SELECT
+                (SELECT COUNT(*) FROM discovered_listings
+                 WHERE source_site = 'bringatrailer'
+                   AND source_listing_id = 'schema-discovery-test'),
+                url,
+                title,
+                auction_end_date,
+                source_location,
+                upserted.discovered_at = original.discovered_at,
+                upserted.last_seen_at >= original.discovered_at,
+                eligible IS NULL,
+                eligibility_reason IS NULL,
+                ingested_at IS NULL
+            FROM upserted
+            CROSS JOIN original;
+            """,
+        )
+        assert discovered_upsert == [
+            (
+                "1|https://bringatrailer.com/listing/schema-discovery-test-updated/"
+                "|Updated title|2026-03-30|CAN|t|t|t|t|t"
+            )
+        ]
     finally:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
 
