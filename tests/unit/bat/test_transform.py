@@ -502,7 +502,7 @@ def test_find_detail_value_valid_transmission():
         "Four speed manual transmission",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert transform.find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "Four speed manual transmission"
+    assert transform.find_detail_value(values, transform.TRANSMISSION_DETAIL_PATTERN, "Transmission") == "Four speed manual transmission"
 
 def test_find_detail_value_valid_tranaxle():
     values = [
@@ -510,7 +510,7 @@ def test_find_detail_value_valid_tranaxle():
         "6-Speed manual transaxle",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert transform.find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "6-Speed manual transaxle"
+    assert transform.find_detail_value(values, transform.TRANSMISSION_DETAIL_PATTERN, "Transmission") == "6-Speed manual transaxle"
 
 def test_find_detail_value_valid_gearbox():
     values = [
@@ -518,7 +518,23 @@ def test_find_detail_value_valid_gearbox():
         "Automatic gearbox",
         "3.2-Liter S54 Inline-Six",
     ]
-    assert transform.find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission") == "Automatic gearbox"
+    assert transform.find_detail_value(values, transform.TRANSMISSION_DETAIL_PATTERN, "Transmission") == "Automatic gearbox"
+
+def test_find_detail_value_valid_column_shifted_manual_without_transmission_keyword():
+    values = [
+        "Chassis: CE145Z164835",
+        "Column-Shifted Three-Speed Manual",
+        "235ci Inline-Six",
+    ]
+    assert transform.find_detail_value(values, transform.TRANSMISSION_DETAIL_PATTERN, "Transmission") == "Column-Shifted Three-Speed Manual"
+
+def test_find_detail_value_valid_floor_shift_manual_without_transmission_keyword():
+    values = [
+        "Chassis: WBSBL93414PN57203",
+        "Floor-Shift Four-Speed Manual",
+        "3.2-Liter S54 Inline-Six",
+    ]
+    assert transform.find_detail_value(values, transform.TRANSMISSION_DETAIL_PATTERN, "Transmission") == "Floor-Shift Four-Speed Manual"
 
 def test_find_detail_value_transmission_not_found():
     values = [
@@ -526,7 +542,17 @@ def test_find_detail_value_transmission_not_found():
         "3.2-Liter S54 Inline-Six",
     ]
     with pytest.raises(ValueError, match="Could not parse Transmission"):
-        transform.find_detail_value(values, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission")
+        transform.find_detail_value(values, transform.TRANSMISSION_DETAIL_PATTERN, "Transmission")
+
+def test_find_detail_value_transmission_ignores_unrelated_manual_details():
+    values = [
+        "Chassis: CE145Z164835",
+        "Manual Steering",
+        "Manual Brakes",
+        "235ci Inline-Six",
+    ]
+    with pytest.raises(ValueError, match="Could not parse Transmission"):
+        transform.find_detail_value(values, transform.TRANSMISSION_DETAIL_PATTERN, "Transmission")
 
 def test_extract_vin_valid():
     raw_vin = "Chassis: WBSBL93414PN57203"

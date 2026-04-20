@@ -17,6 +17,12 @@ WHERE source_site = %(source_site)s
   AND source_listing_id = %(source_listing_id)s
 """
 
+TRANSMISSION_DETAIL_PATTERN = (
+    r"\b(?:Transmission|Transaxle|Gearbox)\b"
+    r"|"
+    r"\b(?:column|floor|console|dash)-?shift(?:ed)?\b.*\b(?:\w+-)?speed\b.*\b(?:manual|automatic)\b"
+)
+
 
 def load_listing_html(listing_id):
     database_url = os.environ.get("DATABASE_URL")
@@ -60,7 +66,7 @@ def transform_listing_html(listing_id):
     sale_price = extract_sale_price(soup, product_data)
     sold = extract_sold_status(soup)
     auction_end_date = extract_auction_end_date(soup)
-    transmission = normalize_transmission(find_detail_value(listing_details, r"\b(?:Transmission|Transaxle|Gearbox)\b", "Transmission"))
+    transmission = normalize_transmission(find_detail_value(listing_details, TRANSMISSION_DETAIL_PATTERN, "Transmission"))
 
     # transaformed data object
     transformed_data = {
