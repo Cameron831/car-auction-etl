@@ -3,6 +3,7 @@ import logging
 
 from dotenv import load_dotenv
 
+from app.sources.bat.discover import run_daily_discovery
 from app.sources.bat.ingest import fetch_listing_html, save_listing_html
 from app.sources.bat.load import load_listing
 from app.sources.bat.transform import transform_listing_html
@@ -19,6 +20,9 @@ def build_parser():
     for command in ("ingest", "transform", "load", "run"):
         subparser = subparsers.add_parser(command)
         subparser.add_argument("--listing-id", required=True)
+
+    discover_parser = subparsers.add_parser("discover")
+    discover_parser.add_argument("--max-pages", type=int, default=5)
 
     return parser
 
@@ -50,11 +54,16 @@ def run_listing(listing_id):
     load_listing(transformed_listing)
 
 
+def discover_and_ingest(max_pages):
+    return run_daily_discovery(max_pages=max_pages)
+
+
 def main(argv=None):
     configure_logging()
     args = build_parser().parse_args(argv)
 
-    logger.info("BAT %s command started for listing_id=%s", args.command, args.listing_id)
+    listing_id = getattr(args, "listing_id", None)
+    logger.info("BAT %s command started for listing_id=%s", args.command, listing_id)
     try:
         if args.command == "ingest":
             ingest_listing(args.listing_id)
@@ -64,10 +73,12 @@ def main(argv=None):
             load_transformed_listing(args.listing_id)
         elif args.command == "run":
             run_listing(args.listing_id)
+        elif args.command == "discover":
+            discover_and_ingest(args.max_pages)
     except Exception:
-        logger.error("BAT %s command failed for listing_id=%s", args.command, args.listing_id)
+        logger.error("BAT %s command failed for listing_id=%s", args.command, listing_id)
         raise
-    logger.info("BAT %s command completed for listing_id=%s", args.command, args.listing_id)
+    logger.info("BAT %s command completed for listing_id=%s", args.command, listing_id)
 
 
 if __name__ == "__main__":

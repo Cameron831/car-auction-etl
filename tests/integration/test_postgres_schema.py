@@ -135,6 +135,74 @@ def test_schema_sql_applies_in_isolated_postgres_container():
             """,
         )
         assert raw_defaults == ["false|t"]
+
+        discovered_column_rows = _psql(
+            container_name,
+            """
+            SELECT column_name || ':' || data_type || ':' || is_nullable
+            FROM information_schema.columns
+            WHERE table_name = 'discovered_listings'
+              AND column_name IN (
+                  'id',
+                  'source_site',
+                  'source_listing_id',
+                  'url',
+                  'eligible',
+                  'skip_reason',
+                  'ingested_at',
+                  'created_at'
+              )
+            ORDER BY column_name;
+            """,
+        )
+        assert discovered_column_rows == [
+            "created_at:timestamp with time zone:NO",
+            "eligible:boolean:NO",
+            "id:bigint:NO",
+            "ingested_at:timestamp with time zone:YES",
+            "skip_reason:text:YES",
+            "source_listing_id:text:NO",
+            "source_site:text:NO",
+            "url:text:NO",
+        ]
+
+        discovered_unique_columns = _psql(
+            container_name,
+            """
+            SELECT string_agg(a.attname, ',' ORDER BY array_position(c.conkey, a.attnum))
+            FROM pg_constraint c
+            JOIN pg_class t ON t.oid = c.conrelid
+            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(c.conkey)
+            WHERE t.relname = 'discovered_listings'
+              AND c.contype = 'u'
+            GROUP BY c.oid;
+            """,
+        )
+        assert "source_site,source_listing_id" in discovered_unique_columns
+
+        discovered_defaults = _psql(
+            container_name,
+            """
+            WITH inserted AS (
+                INSERT INTO discovered_listings (
+                    source_site,
+                    source_listing_id,
+                    url
+                ) VALUES (
+                    'bringatrailer',
+                    'schema-discovery-test',
+                    'https://bringatrailer.com/listing/schema-discovery-test/'
+                )
+                RETURNING eligible, skip_reason, ingested_at, created_at
+            )
+            SELECT eligible::text,
+                   skip_reason IS NULL,
+                   ingested_at IS NULL,
+                   created_at IS NOT NULL
+            FROM inserted;
+            """,
+        )
+        assert discovered_defaults == ["true|t|t|t"]
     finally:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
 

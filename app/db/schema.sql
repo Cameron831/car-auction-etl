@@ -32,3 +32,15 @@ CREATE TABLE IF NOT EXISTS raw_listing_html (
     processed BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE (source_site, source_listing_id)
 );
+
+CREATE TABLE IF NOT EXISTS discovered_listings (
+    id BIGSERIAL PRIMARY KEY,
+    source_site TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    eligible BOOLEAN NOT NULL DEFAULT TRUE,
+    skip_reason TEXT,
+    ingested_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (source_site, source_listing_id)
+);

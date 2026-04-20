@@ -96,6 +96,14 @@ def test_run_command_executes_ingest_transform_load_in_order(mocker):
     ]
 
 
+def test_discover_command_runs_daily_discovery_with_max_pages(mocker):
+    run_daily_discovery = mocker.patch("app.sources.bat.cli.run_daily_discovery")
+
+    cli.main(["discover", "--max-pages", "2"])
+
+    run_daily_discovery.assert_called_once_with(max_pages=2)
+
+
 @pytest.mark.parametrize("command", ["ingest", "transform", "load", "run"])
 def test_commands_require_listing_id(command, capsys):
     with pytest.raises(SystemExit) as exc_info:
