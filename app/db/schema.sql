@@ -32,3 +32,19 @@ CREATE TABLE IF NOT EXISTS raw_listing_html (
     processed BOOLEAN NOT NULL DEFAULT FALSE,
     UNIQUE (source_site, source_listing_id)
 );
+
+CREATE TABLE IF NOT EXISTS discovered_listings (
+    id BIGSERIAL PRIMARY KEY,
+    source_site TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    title TEXT,
+    auction_end_date DATE,
+    source_location TEXT,
+    eligible BOOLEAN,
+    eligibility_reason TEXT,
+    discovered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    ingested_at TIMESTAMPTZ,
+    UNIQUE (source_site, source_listing_id)
+);
