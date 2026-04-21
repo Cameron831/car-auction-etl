@@ -101,7 +101,6 @@ def test_discover_command_parses_without_listing_id():
     args = cli.build_parser().parse_args(["discover"])
 
     assert args.command == "discover"
-    assert args.results_url == "https://bringatrailer.com/auctions/results/"
     assert args.max_candidates is None
     assert isinstance(args.scrape_date, date)
 
@@ -121,8 +120,6 @@ def test_discover_command_dispatches_with_parsed_options(mocker, caplog, capsys)
     cli.main(
         [
             "discover",
-            "--results-url",
-            "https://bringatrailer.com/auctions/results/page/2/",
             "--scrape-date",
             "2026-04-20",
             "--max-candidates",
@@ -131,19 +128,14 @@ def test_discover_command_dispatches_with_parsed_options(mocker, caplog, capsys)
     )
 
     discover_completed_auctions.assert_called_once_with(
-        results_url="https://bringatrailer.com/auctions/results/page/2/",
         scrape_date=date(2026, 4, 20),
         max_candidates=5,
     )
     assert (
-        "BAT discover command started for results_url=https://bringatrailer.com/auctions/results/page/2/ "
-        "scrape_date=2026-04-20 max_candidates=5"
+        "BAT discover command started for scrape_date=2026-04-20 max_candidates=5"
     ) in caplog.text
     assert "BAT discover summary inspected=2 new=1 existing_or_updated=1 failed=0" in caplog.text
-    assert (
-        "BAT discover command completed for results_url=https://bringatrailer.com/auctions/results/page/2/ "
-        "scrape_date=2026-04-20"
-    ) in caplog.text
+    assert "BAT discover command completed for scrape_date=2026-04-20" in caplog.text
     assert (
         "Discovery summary: inspected=2 new=1 existing_or_updated=1 failed=0"
         in capsys.readouterr().out
@@ -162,16 +154,18 @@ def test_discover_command_logs_failure_context_without_traceback_and_reraises(mo
         cli.main(["discover", "--scrape-date", "2026-04-20"])
 
     assert exc_info.value is error
-    assert (
-        "BAT discover command started for results_url=https://bringatrailer.com/auctions/results/ "
-        "scrape_date=2026-04-20 max_candidates=None"
-    ) in caplog.text
-    assert (
-        "BAT discover command failed for results_url=https://bringatrailer.com/auctions/results/ "
-        "scrape_date=2026-04-20"
-    ) in caplog.text
+    assert "BAT discover command started for scrape_date=2026-04-20 max_candidates=None" in caplog.text
+    assert "BAT discover command failed for scrape_date=2026-04-20" in caplog.text
     assert "Traceback" not in caplog.text
     assert "RuntimeError: discover failed" not in caplog.text
+
+
+def test_discover_command_rejects_results_url_option(capsys):
+    with pytest.raises(SystemExit) as exc_info:
+        cli.main(["discover", "--results-url", "https://bringatrailer.com/auctions/results/"])
+
+    assert exc_info.value.code == 2
+    assert "--results-url" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize("command", ["ingest", "transform", "load", "run"])
