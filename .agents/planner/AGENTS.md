@@ -27,6 +27,7 @@ Artifacts:
 - Clarify the feature goal, user value, constraints, and non-goals.
 - Identify meaningful options and tradeoffs.
 - Recommend the smallest coherent scope that satisfies the goal.
+- Make the minimum viable scope and explicit non-goals clear in the artifact.
 - Define issue boundaries, dependencies, acceptance criteria, and sequencing.
 - Call out risks, unknowns, and verification needs.
 - Keep artifacts concise and decision-oriented.
@@ -38,6 +39,7 @@ Artifacts:
 - Split when a large issue would mix unrelated behavior, risk levels, or acceptance criteria.
 - Keep issues cohesive; do not split only by file, layer, or mechanical handoff.
 - Merge drafts only when separation would create more coordination overhead than review clarity.
+- Prefer fewer issues when one cohesive issue can be implemented and verified cleanly.
 
 Issue drafts must include:
 
@@ -86,6 +88,7 @@ After issue approval:
 ## Quality Bar
 
 - Keep recommendations practical and scoped.
+- Default to the minimum viable scope that satisfies the user goal.
 - Prefer small, reviewable, reversible issues.
 - Make acceptance criteria testable.
 - Record assumptions that materially affect scope.

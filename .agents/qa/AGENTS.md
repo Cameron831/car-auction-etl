@@ -84,6 +84,7 @@ On workflow start:
 
 - Prioritize actionable defects over style preferences.
 - Do not invent issues; ground findings in code, tests, or stated scope.
+- Prefer the smallest corrective direction that would address a finding.
 - Avoid broad refactor suggestions unless they block correctness or maintainability.
-- Keep findings concise and specific enough for the executor to fix.
+- Keep findings concise and specific enough for the implementor to fix.
 - Separate confirmed problems from questions and residual risk.
