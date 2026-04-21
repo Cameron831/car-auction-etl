@@ -1,11 +1,13 @@
 import logging
 import os
 import re
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import date, datetime
 from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
 import psycopg
+import requests
 
 
 SOURCE_SITE = "bringatrailer"
@@ -36,7 +38,16 @@ ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
     auction_end_date = EXCLUDED.auction_end_date,
     source_location = EXCLUDED.source_location,
     last_seen_at = NOW()
+RETURNING xmax = 0 AS inserted
 """
+
+
+@dataclass
+class DiscoverySummary:
+    candidates_inspected: int = 0
+    newly_discovered: int = 0
+    already_discovered_or_updated: int = 0
+    failed: int = 0
 
 
 def parse_completed_auction_candidates(html, max_candidates=None):
@@ -76,6 +87,57 @@ def parse_completed_auction_candidates(html, max_candidates=None):
     return candidates
 
 
+def fetch_completed_auctions_results(results_url):
+    logger.info("Fetching BAT completed auctions results from url=%s", results_url)
+    response = requests.get(results_url, timeout=10)
+    response.raise_for_status()
+    logger.info("Fetched BAT completed auctions results from url=%s", results_url)
+    return response.text
+
+
+def discover_completed_auctions(results_url, scrape_date, max_candidates=None):
+    normalized_scrape_date = _normalize_scrape_date(scrape_date)
+    html = fetch_completed_auctions_results(results_url)
+    candidates = parse_completed_auction_candidates(html, max_candidates=max_candidates)
+    summary = DiscoverySummary()
+
+    for candidate in candidates:
+        summary.candidates_inspected += 1
+        listing_id = candidate["listing_id"]
+        auction_end_date = candidate.get("auction_end_date")
+
+        if not auction_end_date:
+            summary.failed += 1
+            logger.error(
+                "Failed BAT discovery candidate for listing_id=%s because auction_end_date is missing",
+                listing_id,
+            )
+            continue
+
+        if date.fromisoformat(auction_end_date) < normalized_scrape_date:
+            logger.info(
+                "Stopping BAT discovery at listing_id=%s because auction_end_date=%s is older than scrape_date=%s",
+                listing_id,
+                auction_end_date,
+                normalized_scrape_date.isoformat(),
+            )
+            break
+
+        try:
+            if save_discovered_listing(candidate):
+                summary.newly_discovered += 1
+            else:
+                summary.already_discovered_or_updated += 1
+        except Exception:
+            summary.failed += 1
+            logger.error(
+                "Failed BAT discovery candidate for listing_id=%s",
+                listing_id,
+            )
+
+    return summary
+
+
 def save_discovered_listing(candidate):
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -86,10 +148,12 @@ def save_discovered_listing(candidate):
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
             cur.execute(UPSERT_DISCOVERED_LISTING_SQL, params)
+            inserted, = cur.fetchone()
             logger.info(
                 "Upserted BAT discovered listing for listing_id=%s",
                 params["source_listing_id"],
             )
+            return inserted
 
 
 def build_discovered_listing_params(candidate):
@@ -101,6 +165,16 @@ def build_discovered_listing_params(candidate):
         "auction_end_date": candidate.get("auction_end_date"),
         "source_location": candidate.get("source_location"),
     }
+
+
+def _normalize_scrape_date(value):
+    if isinstance(value, date):
+        return value
+
+    if isinstance(value, str):
+        return date.fromisoformat(value)
+
+    raise TypeError("scrape_date must be a date or ISO date string")
 
 
 def _find_completed_auctions_heading(soup):

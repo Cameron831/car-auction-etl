@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 import pytest
 
@@ -94,6 +95,83 @@ def test_run_command_executes_ingest_transform_load_in_order(mocker):
         ("transform", "test-id"),
         ("load", transformed_listing),
     ]
+
+
+def test_discover_command_parses_without_listing_id():
+    args = cli.build_parser().parse_args(["discover"])
+
+    assert args.command == "discover"
+    assert args.results_url == "https://bringatrailer.com/auctions/results/"
+    assert args.max_candidates is None
+    assert isinstance(args.scrape_date, date)
+
+
+def test_discover_command_dispatches_with_parsed_options(mocker, caplog, capsys):
+    discover_completed_auctions = mocker.patch(
+        "app.sources.bat.cli.discover_completed_auctions",
+        return_value=mocker.Mock(
+            candidates_inspected=2,
+            newly_discovered=1,
+            already_discovered_or_updated=1,
+            failed=0,
+        ),
+    )
+
+    caplog.set_level(logging.INFO)
+    cli.main(
+        [
+            "discover",
+            "--results-url",
+            "https://bringatrailer.com/auctions/results/page/2/",
+            "--scrape-date",
+            "2026-04-20",
+            "--max-candidates",
+            "5",
+        ]
+    )
+
+    discover_completed_auctions.assert_called_once_with(
+        results_url="https://bringatrailer.com/auctions/results/page/2/",
+        scrape_date=date(2026, 4, 20),
+        max_candidates=5,
+    )
+    assert (
+        "BAT discover command started for results_url=https://bringatrailer.com/auctions/results/page/2/ "
+        "scrape_date=2026-04-20 max_candidates=5"
+    ) in caplog.text
+    assert "BAT discover summary inspected=2 new=1 existing_or_updated=1 failed=0" in caplog.text
+    assert (
+        "BAT discover command completed for results_url=https://bringatrailer.com/auctions/results/page/2/ "
+        "scrape_date=2026-04-20"
+    ) in caplog.text
+    assert (
+        "Discovery summary: inspected=2 new=1 existing_or_updated=1 failed=0"
+        in capsys.readouterr().out
+    )
+
+
+def test_discover_command_logs_failure_context_without_traceback_and_reraises(mocker, caplog):
+    error = RuntimeError("discover failed")
+    mocker.patch(
+        "app.sources.bat.cli.discover_completed_auctions",
+        side_effect=error,
+    )
+
+    caplog.set_level(logging.INFO)
+    with pytest.raises(RuntimeError) as exc_info:
+        cli.main(["discover", "--scrape-date", "2026-04-20"])
+
+    assert exc_info.value is error
+    assert (
+        "BAT discover command started for results_url=https://bringatrailer.com/auctions/results/ "
+        "scrape_date=2026-04-20 max_candidates=None"
+    ) in caplog.text
+    assert (
+        "BAT discover command failed for results_url=https://bringatrailer.com/auctions/results/ "
+        "scrape_date=2026-04-20"
+    ) in caplog.text
+    assert "Traceback" not in caplog.text
+    assert "RuntimeError: discover failed" not in caplog.text
 
 
 @pytest.mark.parametrize("command", ["ingest", "transform", "load", "run"])
