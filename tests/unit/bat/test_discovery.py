@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -174,6 +175,170 @@ def test_parse_completed_auction_candidates_reads_rendered_card_fixture():
     ]
 
 
+def test_fetch_completed_auctions_results_uses_url_and_timeout(mocker, caplog):
+    response = mocker.Mock()
+    response.text = "<html>Results</html>"
+    response.raise_for_status = mocker.Mock()
+    mock_get = mocker.patch("app.sources.bat.discovery.requests.get", return_value=response)
+
+    caplog.set_level(logging.INFO)
+    html = discovery.fetch_completed_auctions_results(
+        "https://bringatrailer.com/auctions/results/"
+    )
+
+    assert html == "<html>Results</html>"
+    mock_get.assert_called_once_with(
+        "https://bringatrailer.com/auctions/results/",
+        timeout=10,
+    )
+    response.raise_for_status.assert_called_once_with()
+    assert "Fetching BAT completed auctions results from url=https://bringatrailer.com/auctions/results/" in caplog.text
+    assert "Fetched BAT completed auctions results from url=https://bringatrailer.com/auctions/results/" in caplog.text
+
+
+def test_discover_completed_auctions_returns_summary_counts(mocker):
+    mocker.patch(
+        "app.sources.bat.discovery.fetch_completed_auctions_results",
+        return_value="<html>Results</html>",
+    )
+    mocker.patch(
+        "app.sources.bat.discovery.parse_completed_auction_candidates",
+        return_value=[
+            {
+                "listing_id": "new-car",
+                "url": "https://bringatrailer.com/listing/new-car/",
+                "auction_end_date": "2026-04-20",
+            },
+            {
+                "listing_id": "existing-car",
+                "url": "https://bringatrailer.com/listing/existing-car/",
+                "auction_end_date": "2026-04-20",
+            },
+            {
+                "listing_id": "broken-car",
+                "url": "https://bringatrailer.com/listing/broken-car/",
+                "auction_end_date": "2026-04-20",
+            },
+        ],
+    )
+    save_discovered_listing = mocker.patch(
+        "app.sources.bat.discovery.save_discovered_listing",
+        side_effect=[True, False, RuntimeError("boom")],
+    )
+
+    summary = discovery.discover_completed_auctions(
+        results_url="https://bringatrailer.com/auctions/results/",
+        scrape_date=date(2026, 4, 20),
+        max_candidates=3,
+    )
+
+    assert summary == discovery.DiscoverySummary(
+        candidates_inspected=3,
+        newly_discovered=1,
+        already_discovered_or_updated=1,
+        failed=1,
+    )
+    assert save_discovered_listing.call_count == 3
+
+
+def test_discover_completed_auctions_stops_when_candidate_is_older_than_scrape_date(mocker):
+    mocker.patch(
+        "app.sources.bat.discovery.fetch_completed_auctions_results",
+        return_value="<html>Results</html>",
+    )
+    mocker.patch(
+        "app.sources.bat.discovery.parse_completed_auction_candidates",
+        return_value=[
+            {
+                "listing_id": "newest-car",
+                "url": "https://bringatrailer.com/listing/newest-car/",
+                "auction_end_date": "2026-04-20",
+            },
+            {
+                "listing_id": "same-day-car",
+                "url": "https://bringatrailer.com/listing/same-day-car/",
+                "auction_end_date": "2026-04-20",
+            },
+            {
+                "listing_id": "older-car",
+                "url": "https://bringatrailer.com/listing/older-car/",
+                "auction_end_date": "2026-04-19",
+            },
+            {
+                "listing_id": "oldest-car",
+                "url": "https://bringatrailer.com/listing/oldest-car/",
+                "auction_end_date": "2026-04-18",
+            },
+        ],
+    )
+    save_discovered_listing = mocker.patch(
+        "app.sources.bat.discovery.save_discovered_listing",
+        return_value=True,
+    )
+
+    summary = discovery.discover_completed_auctions(
+        results_url="https://bringatrailer.com/auctions/results/",
+        scrape_date="2026-04-20",
+    )
+
+    assert summary == discovery.DiscoverySummary(
+        candidates_inspected=3,
+        newly_discovered=2,
+        already_discovered_or_updated=0,
+        failed=0,
+    )
+    assert [call.args[0]["listing_id"] for call in save_discovered_listing.call_args_list] == [
+        "newest-car",
+        "same-day-car",
+    ]
+
+
+def test_discover_completed_auctions_marks_missing_auction_end_date_as_failed(mocker):
+    mocker.patch(
+        "app.sources.bat.discovery.fetch_completed_auctions_results",
+        return_value="<html>Results</html>",
+    )
+    mocker.patch(
+        "app.sources.bat.discovery.parse_completed_auction_candidates",
+        return_value=[
+            {
+                "listing_id": "missing-date",
+                "url": "https://bringatrailer.com/listing/missing-date/",
+            },
+            {
+                "listing_id": "in-scope",
+                "url": "https://bringatrailer.com/listing/in-scope/",
+                "auction_end_date": "2026-04-20",
+            },
+        ],
+    )
+    save_discovered_listing = mocker.patch(
+        "app.sources.bat.discovery.save_discovered_listing",
+        return_value=True,
+    )
+    raw_html_writer = mocker.patch("app.sources.bat.ingest.save_listing_html")
+
+    summary = discovery.discover_completed_auctions(
+        results_url="https://bringatrailer.com/auctions/results/",
+        scrape_date=date(2026, 4, 20),
+    )
+
+    assert summary == discovery.DiscoverySummary(
+        candidates_inspected=2,
+        newly_discovered=1,
+        already_discovered_or_updated=0,
+        failed=1,
+    )
+    save_discovered_listing.assert_called_once_with(
+        {
+            "listing_id": "in-scope",
+            "url": "https://bringatrailer.com/listing/in-scope/",
+            "auction_end_date": "2026-04-20",
+        }
+    )
+    raw_html_writer.assert_not_called()
+
+
 def test_build_discovered_listing_params_maps_candidate_to_schema_columns():
     params = discovery.build_discovered_listing_params(_candidate())
 
@@ -217,6 +382,9 @@ def test_save_discovered_listing_executes_upsert_for_visible_metadata(mocker, ca
 
         def execute(self, sql, params):
             calls["executions"].append((sql, params))
+
+        def fetchone(self):
+            return (True,)
 
     class FakeConnection:
         def __enter__(self):
