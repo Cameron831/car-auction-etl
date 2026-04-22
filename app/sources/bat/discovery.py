@@ -17,6 +17,9 @@ DISCOVERY_PER_PAGE = 60
 DISCOVERY_TIMEOUT_SECONDS = 10
 logger = logging.getLogger(__name__)
 
+DISCOVERY_MIN_YEAR = 1946
+DISCOVERY_ALLOWED_SOURCE_LOCATION = "US"
+
 
 UPSERT_DISCOVERED_LISTING_SQL = """
 INSERT INTO discovered_listings (
@@ -284,6 +287,18 @@ def build_discovered_listing_params(candidate):
     }
 
 
+def evaluate_discovery_eligibility(title, source_location):
+    normalized_title = (title or "").strip()
+    year = _parse_title_year(normalized_title)
+    if year is None:
+        return False, "title year missing"
+    if year < DISCOVERY_MIN_YEAR:
+        return False, "year before 1946"
+    if source_location != DISCOVERY_ALLOWED_SOURCE_LOCATION:
+        return False, "listing outside US"
+    return True, None
+
+
 def _get_database_url():
     database_url = os.environ.get("DATABASE_URL")
     if not database_url:
@@ -299,6 +314,13 @@ def _normalize_scrape_date(value):
         return date.fromisoformat(value)
 
     raise TypeError("scrape_date must be a date or ISO date string")
+
+
+def _parse_title_year(title):
+    match = re.match(r"(\d{4})\b", title)
+    if not match:
+        return None
+    return int(match.group(1))
 
 
 def _build_candidate_from_item(item, summary):

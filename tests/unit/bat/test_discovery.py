@@ -67,6 +67,44 @@ def test_normalize_completed_auction_candidate_allows_missing_optional_metadata(
     }
 
 
+def test_evaluate_discovery_eligibility_accepts_in_scope_us_car_title():
+    assert discovery.evaluate_discovery_eligibility("2004 BMW M3 Coupe", "US") == (True, None)
+
+
+def test_evaluate_discovery_eligibility_rejects_missing_or_unparseable_year():
+    assert discovery.evaluate_discovery_eligibility("BMW M3 Coupe", "US") == (
+        False,
+        "title year missing",
+    )
+
+
+def test_evaluate_discovery_eligibility_rejects_pre_1946_title():
+    assert discovery.evaluate_discovery_eligibility("1941 Ford Super Deluxe Coupe", "US") == (
+        False,
+        "year before 1946",
+    )
+
+
+def test_evaluate_discovery_eligibility_rejects_non_us_listing():
+    assert discovery.evaluate_discovery_eligibility("2004 BMW M3 Coupe", "CA") == (
+        False,
+        "listing outside US",
+    )
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "2004 Harley-Davidson Motorcycle",
+        "1967 Porsche 911 Literature Collection",
+        "1989 Polaris ATV",
+        "1967 Ford F-250 Fire Truck",
+    ],
+)
+def test_evaluate_discovery_eligibility_keeps_valid_year_and_location_titles_in_scope(title):
+    assert discovery.evaluate_discovery_eligibility(title, "US") == (True, None)
+
+
 def test_discover_completed_auctions_returns_summary_counts_across_pages(mocker):
     fetch_completed_auctions_page = mocker.patch(
         "app.sources.bat.discovery.fetch_completed_auctions_page",
