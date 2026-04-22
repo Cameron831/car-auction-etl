@@ -9,6 +9,27 @@ import psycopg
 
 SOURCE_SITE = "bringatrailer"
 logger = logging.getLogger(__name__)
+BAT_MIN_YEAR = 1946
+EXCLUDED_CATEGORY_VALUES = {
+    "aircraft",
+    "all-terrain vehicles",
+    "boats",
+    "charity & non-profit",
+    "go-karts",
+    "hot rods",
+    "military vehicles",
+    "minibikes & scooters",
+    "motorcycles",
+    "parts",
+    "projects",
+    "race cars",
+    "rvs & campers",
+    "service vehicles",
+    "side-by-sides",
+    "tractors",
+    "trains",
+    "wheels",
+}
 
 SELECT_RAW_LISTING_HTML_SQL = """
 SELECT raw_html
@@ -86,6 +107,26 @@ def transform_listing_html(listing_id):
     }
     logger.info("Transformed BAT listing HTML for listing_id=%s", listing_id)
     return transformed_data
+
+
+def evaluate_listing_eligibility(soup, listing_title):
+    try:
+        year = parse_year(listing_title)
+    except ValueError:
+        return False, "title year missing"
+
+    if year < BAT_MIN_YEAR:
+        return False, "year before 1946"
+
+    try:
+        category = extract_group_value(soup, "Category")
+    except ValueError:
+        return True, None
+
+    if _normalize_category_value(category) in EXCLUDED_CATEGORY_VALUES:
+        return False, f"excluded category: {category}"
+
+    return True, None
 
 def get_product_json_ld(soup):
     for script_tag in soup.find_all("script", attrs={"type": "application/ld+json"}):
@@ -249,3 +290,7 @@ def normalize_transmission(raw_transmission):
     if value:
         return "automatic"
     raise ValueError("Could not normalize transmission")
+
+
+def _normalize_category_value(value):
+    return " ".join(value.lower().split())
