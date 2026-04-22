@@ -5,6 +5,7 @@ import re
 from datetime import datetime
 from bs4 import BeautifulSoup
 import psycopg
+from psycopg.rows import dict_row
 
 
 SOURCE_SITE = "bringatrailer"
@@ -38,6 +39,21 @@ WHERE source_site = %(source_site)s
   AND source_listing_id = %(source_listing_id)s
 """
 
+SELECT_PENDING_RAW_LISTING_HTML_SQL = """
+SELECT
+    id,
+    source_site,
+    source_listing_id,
+    url,
+    raw_html,
+    created_at,
+    processed
+FROM raw_listing_html
+WHERE source_site = %(source_site)s
+  AND processed = FALSE
+ORDER BY created_at ASC, id ASC
+"""
+
 TRANSMISSION_DETAIL_PATTERN = (
     r"\b(?:Transmission|Transaxle|Gearbox)\b"
     r"|"
@@ -68,6 +84,26 @@ def build_raw_listing_lookup_params(listing_id):
         "source_site": SOURCE_SITE,
         "source_listing_id": listing_id,
     }
+
+
+def load_pending_raw_listing_html(limit=None):
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL must be set")
+
+    params = {"source_site": SOURCE_SITE}
+    sql = SELECT_PENDING_RAW_LISTING_HTML_SQL
+
+    if limit is not None:
+        if limit <= 0:
+            return []
+        sql = f"{sql}\nLIMIT %(limit)s"
+        params["limit"] = limit
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, params)
+            return cur.fetchall()
 
 
 def transform_listing_html(listing_id):

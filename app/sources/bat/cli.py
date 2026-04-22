@@ -19,6 +19,7 @@ from app.sources.bat.transform import (
     evaluate_listing_eligibility,
     extract_listing_title,
     get_product_json_ld,
+    load_pending_raw_listing_html,
     transform_listing_html,
 )
 
@@ -36,6 +37,14 @@ class BatchIngestSummary:
     stage_2_rejected: int = 0
     raw_html_stored: int = 0
     accepted: int = 0
+
+
+@dataclass
+class BatchTransformSummary:
+    selected: int = 0
+    transformed_and_loaded: int = 0
+    transform_failed: int = 0
+    load_failed: int = 0
 
 
 def build_parser():
@@ -56,6 +65,9 @@ def build_parser():
 
     ingest_discovered_parser = subparsers.add_parser("ingest-discovered")
     ingest_discovered_parser.add_argument("--batch-size", type=int)
+
+    transform_discovered_parser = subparsers.add_parser("transform-discovered")
+    transform_discovered_parser.add_argument("--batch-size", type=int)
 
     return parser
 
@@ -137,6 +149,41 @@ def ingest_discovered_listings(batch_size=None):
     return summary
 
 
+def transform_discovered_listings(batch_size=None):
+    summary = BatchTransformSummary()
+    pending_rows = load_pending_raw_listing_html(limit=batch_size)
+
+    for row in pending_rows:
+        summary.selected += 1
+        listing_id = row["source_listing_id"]
+
+        try:
+            transformed_listing = transform_listing_html(listing_id)
+        except Exception as exc:
+            summary.transform_failed += 1
+            logger.error(
+                "BAT transform-discovered row failed for listing_id=%s stage=transform error=%s",
+                listing_id,
+                exc,
+            )
+            continue
+
+        try:
+            load_listing(transformed_listing)
+        except Exception as exc:
+            summary.load_failed += 1
+            logger.error(
+                "BAT transform-discovered row failed for listing_id=%s stage=load error=%s",
+                listing_id,
+                exc,
+            )
+            continue
+
+        summary.transformed_and_loaded += 1
+
+    return summary
+
+
 def main(argv=None):
     configure_logging()
     args = build_parser().parse_args(argv)
@@ -199,6 +246,31 @@ def main(argv=None):
             )
             logger.info("BAT ingest-discovered command completed for batch_size=%s", args.batch_size)
             return
+        if args.command == "transform-discovered":
+            logger.info(
+                "BAT transform-discovered command started for batch_size=%s",
+                args.batch_size,
+            )
+            summary = transform_discovered_listings(batch_size=args.batch_size)
+            logger.info(
+                "BAT transform-discovered summary selected=%s transformed_and_loaded=%s transform_failed=%s load_failed=%s",
+                summary.selected,
+                summary.transformed_and_loaded,
+                summary.transform_failed,
+                summary.load_failed,
+            )
+            print(
+                "Transform-discovered summary: "
+                f"selected={summary.selected} "
+                f"transformed_and_loaded={summary.transformed_and_loaded} "
+                f"transform_failed={summary.transform_failed} "
+                f"load_failed={summary.load_failed}"
+            )
+            logger.info(
+                "BAT transform-discovered command completed for batch_size=%s",
+                args.batch_size,
+            )
+            return
 
         logger.info("BAT %s command started for listing_id=%s", args.command, args.listing_id)
         if args.command == "ingest":
@@ -218,6 +290,11 @@ def main(argv=None):
         elif args.command == "ingest-discovered":
             logger.error(
                 "BAT ingest-discovered command failed for batch_size=%s",
+                args.batch_size,
+            )
+        elif args.command == "transform-discovered":
+            logger.error(
+                "BAT transform-discovered command failed for batch_size=%s",
                 args.batch_size,
             )
         else:
