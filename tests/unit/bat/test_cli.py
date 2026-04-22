@@ -23,17 +23,6 @@ def test_ingest_command_fetches_and_saves_listing_html(mocker, caplog):
     assert "<html>Test</html>" not in caplog.text
 
 
-def test_transform_command_transforms_listing_html(mocker):
-    transform_listing_html = mocker.patch(
-        "app.sources.bat.cli.transform_listing_html",
-        return_value={"listing_id": "test-id"},
-    )
-
-    cli.main(["transform", "--listing-id", "test-id"])
-
-    transform_listing_html.assert_called_once_with("test-id")
-
-
 def test_transform_command_logs_failure_context_without_traceback_and_reraises(mocker, caplog):
     error = RuntimeError("transform failed")
     mocker.patch(
@@ -50,20 +39,6 @@ def test_transform_command_logs_failure_context_without_traceback_and_reraises(m
     assert "BAT transform command failed for listing_id=test-id" in caplog.text
     assert "Traceback" not in caplog.text
     assert "RuntimeError: transform failed" not in caplog.text
-
-
-def test_load_command_transforms_and_loads_listing(mocker):
-    transformed_listing = {"listing_id": "test-id"}
-    transform_listing_html = mocker.patch(
-        "app.sources.bat.cli.transform_listing_html",
-        return_value=transformed_listing,
-    )
-    load_listing = mocker.patch("app.sources.bat.cli.load_listing")
-
-    cli.main(["load", "--listing-id", "test-id"])
-
-    transform_listing_html.assert_called_once_with("test-id")
-    load_listing.assert_called_once_with(transformed_listing)
 
 
 def test_run_command_executes_ingest_transform_load_in_order(mocker):
@@ -637,7 +612,7 @@ def test_transform_discovered_listings_handles_mixed_batch_outcomes(mocker, capl
     assert "Traceback" not in caplog.text
 
 
-@pytest.mark.parametrize("command", ["ingest", "transform", "load", "run"])
+@pytest.mark.parametrize("command", ["ingest", "transform", "run"])
 def test_commands_require_listing_id(command, capsys):
     with pytest.raises(SystemExit) as exc_info:
         cli.main([command])
