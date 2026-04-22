@@ -2,17 +2,18 @@ import logging
 import os
 import re
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from urllib.parse import urljoin, urlparse
 
-from bs4 import BeautifulSoup
 import psycopg
 import requests
 
 
 SOURCE_SITE = "bringatrailer"
 BASE_URL = "https://bringatrailer.com"
-COMPLETED_AUCTIONS_SECTION_TITLE = "All Completed Auctions"
+LISTINGS_FILTER_URL = f"{BASE_URL}/wp-json/bringatrailer/1.0/data/listings-filter"
+DISCOVERY_PER_PAGE = 60
+DISCOVERY_TIMEOUT_SECONDS = 10
 logger = logging.getLogger(__name__)
 
 
@@ -50,90 +51,127 @@ class DiscoverySummary:
     failed: int = 0
 
 
-def parse_completed_auction_candidates(html, max_candidates=None):
-    if max_candidates is not None and max_candidates <= 0:
-        return []
+def fetch_completed_auctions_page(page):
+    if page <= 0:
+        raise ValueError("page must be positive")
+    if not 10 <= DISCOVERY_PER_PAGE <= 60:
+        raise ValueError("DISCOVERY_PER_PAGE must be between 10 and 60")
 
-    soup = BeautifulSoup(html, "html.parser")
-    heading = _find_completed_auctions_heading(soup)
-    if heading is None:
-        return []
-
-    candidates = []
-    seen_listing_ids = set()
-
-    for link in _iter_completed_auction_links(heading):
-        normalized = _normalize_listing_href(link.get("href"))
-        if normalized is None:
-            continue
-
-        listing_id, url = normalized
-        if listing_id in seen_listing_ids:
-            continue
-
-        seen_listing_ids.add(listing_id)
-        candidate = {
-            "source_site": SOURCE_SITE,
-            "listing_id": listing_id,
-            "source_listing_id": listing_id,
-            "url": url,
-        }
-        candidate.update(_extract_card_metadata(link))
-        candidates.append(candidate)
-
-        if max_candidates is not None and len(candidates) >= max_candidates:
-            break
-
-    return candidates
-
-
-def fetch_completed_auctions_results(results_url):
-    logger.info("Fetching BAT completed auctions results from url=%s", results_url)
-    response = requests.get(results_url, timeout=10)
+    params = {
+        "page": page,
+        "per_page": DISCOVERY_PER_PAGE,
+        "get_items": 1,
+        "get_stats": 0,
+        "sort": "td",
+    }
+    logger.info("Fetching BAT completed auctions page=%s", page)
+    response = requests.get(
+        LISTINGS_FILTER_URL,
+        params=params,
+        timeout=DISCOVERY_TIMEOUT_SECONDS,
+    )
     response.raise_for_status()
-    logger.info("Fetched BAT completed auctions results from url=%s", results_url)
-    return response.text
+    payload = response.json()
+    items = payload.get("items")
+    if items is None:
+        items = []
+    if not isinstance(items, list):
+        raise ValueError("BAT discovery payload items must be a list")
+    logger.info("Fetched BAT completed auctions page=%s items=%s", page, len(items))
+    return payload
 
 
-def discover_completed_auctions(results_url, scrape_date, max_candidates=None):
+def normalize_completed_auction_candidate(item):
+    normalized = _normalize_listing_url(item.get("url"))
+    if normalized is None:
+        raise ValueError("BAT discovery item url must be a Bring a Trailer listing URL")
+
+    listing_id, url = normalized
+    candidate = {
+        "source_site": SOURCE_SITE,
+        "listing_id": listing_id,
+        "source_listing_id": listing_id,
+        "url": url,
+    }
+
+    title = item.get("title")
+    if title:
+        candidate["title"] = str(title).strip()
+
+    auction_end_date = _parse_auction_end_date(item.get("timestamp_end"))
+    if auction_end_date:
+        candidate["auction_end_date"] = auction_end_date
+
+    source_location = item.get("country_code")
+    if source_location:
+        candidate["source_location"] = str(source_location).strip()
+
+    return candidate
+
+
+def discover_completed_auctions(scrape_date, max_candidates=None):
+    if max_candidates is not None and max_candidates <= 0:
+        return DiscoverySummary()
+
     normalized_scrape_date = _normalize_scrape_date(scrape_date)
-    html = fetch_completed_auctions_results(results_url)
-    candidates = parse_completed_auction_candidates(html, max_candidates=max_candidates)
     summary = DiscoverySummary()
+    page = 1
 
-    for candidate in candidates:
-        summary.candidates_inspected += 1
-        listing_id = candidate["listing_id"]
-        auction_end_date = candidate.get("auction_end_date")
-
-        if not auction_end_date:
-            summary.failed += 1
-            logger.error(
-                "Failed BAT discovery candidate for listing_id=%s because auction_end_date is missing",
-                listing_id,
-            )
-            continue
-
-        if date.fromisoformat(auction_end_date) < normalized_scrape_date:
-            logger.info(
-                "Stopping BAT discovery at listing_id=%s because auction_end_date=%s is older than scrape_date=%s",
-                listing_id,
-                auction_end_date,
-                normalized_scrape_date.isoformat(),
-            )
+    while True:
+        payload = fetch_completed_auctions_page(page)
+        items = payload.get("items") or []
+        if not items:
+            logger.info("Stopping BAT discovery at page=%s because no items were returned", page)
             break
 
-        try:
-            if save_discovered_listing(candidate):
-                summary.newly_discovered += 1
-            else:
-                summary.already_discovered_or_updated += 1
-        except Exception:
-            summary.failed += 1
-            logger.error(
-                "Failed BAT discovery candidate for listing_id=%s",
-                listing_id,
-            )
+        stop_discovery = False
+        for item in items:
+            if max_candidates is not None and summary.candidates_inspected >= max_candidates:
+                stop_discovery = True
+                break
+
+            candidate = _build_candidate_from_item(item, summary)
+            if candidate is None:
+                continue
+
+            summary.candidates_inspected += 1
+            listing_id = candidate["listing_id"]
+            auction_end_date = candidate.get("auction_end_date")
+
+            if not auction_end_date:
+                summary.failed += 1
+                logger.error(
+                    "Failed BAT discovery candidate for listing_id=%s because auction_end_date is missing",
+                    listing_id,
+                )
+                continue
+
+            if date.fromisoformat(auction_end_date) < normalized_scrape_date:
+                logger.info(
+                    "Stopping BAT discovery at listing_id=%s because auction_end_date=%s is older than scrape_date=%s",
+                    listing_id,
+                    auction_end_date,
+                    normalized_scrape_date.isoformat(),
+                )
+                stop_discovery = True
+                break
+
+            try:
+                if save_discovered_listing(candidate):
+                    summary.newly_discovered += 1
+                else:
+                    summary.already_discovered_or_updated += 1
+            except Exception:
+                summary.failed += 1
+                logger.error(
+                    "Failed BAT discovery candidate for listing_id=%s",
+                    listing_id,
+                )
+
+        if stop_discovery:
+            break
+
+        page += 1
 
     return summary
 
@@ -177,36 +215,23 @@ def _normalize_scrape_date(value):
     raise TypeError("scrape_date must be a date or ISO date string")
 
 
-def _find_completed_auctions_heading(soup):
-    for tag in soup.find_all(True):
-        if _normalized_text(tag) == COMPLETED_AUCTIONS_SECTION_TITLE:
-            return tag
-    return None
-
-
-def _iter_completed_auction_links(heading):
-    for element in heading.next_elements:
-        if element is heading:
-            continue
-        if not getattr(element, "name", None):
-            continue
-        if (
-            element.name == "a"
-            and element.get("href")
-            and _is_listing_card_link(element)
-        ):
-            yield element
-
-
-def _is_listing_card_link(element):
-    return "listing-card" in element.get("class", [])
-
-
-def _normalize_listing_href(href):
-    if not href:
+def _build_candidate_from_item(item, summary):
+    try:
+        return normalize_completed_auction_candidate(item)
+    except Exception:
+        summary.failed += 1
+        logger.error(
+            "Failed BAT discovery item normalization for url=%s",
+            item.get("url"),
+        )
         return None
 
-    parsed = urlparse(urljoin(BASE_URL, href))
+
+def _normalize_listing_url(url):
+    if not url:
+        return None
+
+    parsed = urlparse(urljoin(BASE_URL, url))
     if parsed.netloc and parsed.netloc.lower() != "bringatrailer.com":
         return None
 
@@ -218,60 +243,9 @@ def _normalize_listing_href(href):
     return listing_id, f"{BASE_URL}/listing/{listing_id}/"
 
 
-def _extract_card_metadata(card):
-    metadata = {}
-
-    title = _extract_title(card)
-    if title:
-        metadata["title"] = title
-
-    auction_end_date = _extract_auction_end_date(card)
-    if auction_end_date:
-        metadata["auction_end_date"] = auction_end_date
-
-    source_location = _extract_source_location(card)
-    if source_location:
-        metadata["source_location"] = source_location
-
-    return metadata
-
-
-def _extract_title(card):
-    title = card.select_one(".content-main h3")
-    if title is None:
-        return None
-    return _normalized_text(title) or None
-
-
-def _extract_auction_end_date(card):
-    result = card.select_one(".content-main .item-results")
-    if result is None:
-        return None
-    return _parse_date(_normalized_text(result))
-
-
-def _extract_source_location(card):
-    location = card.select_one(".content-main .show-country-name")
-    if location is None:
-        return None
-    return _normalized_text(location) or None
-
-
-def _parse_date(value):
-    if not value:
+def _parse_auction_end_date(timestamp_end):
+    if timestamp_end in (None, ""):
         return None
 
-    text = str(value).strip()
-    iso_match = re.search(r"\d{4}-\d{2}-\d{2}", text)
-    if iso_match:
-        return iso_match.group(0)
-
-    numeric_match = re.search(r"\d{1,2}/\d{1,2}/\d{4}", text)
-    if numeric_match is None:
-        return None
-
-    return datetime.strptime(numeric_match.group(0), "%m/%d/%Y").date().isoformat()
-
-
-def _normalized_text(tag):
-    return " ".join(tag.get_text(" ", strip=True).split())
+    timestamp = int(timestamp_end)
+    return datetime.fromtimestamp(timestamp, tz=timezone.utc).date().isoformat()

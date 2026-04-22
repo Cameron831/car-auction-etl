@@ -24,10 +24,6 @@ def build_parser():
 
     discover_parser = subparsers.add_parser("discover")
     discover_parser.add_argument(
-        "--results-url",
-        default="https://bringatrailer.com/auctions/results/",
-    )
-    discover_parser.add_argument(
         "--scrape-date",
         type=date.fromisoformat,
         default=date.today(),
@@ -64,9 +60,8 @@ def run_listing(listing_id):
     load_listing(transformed_listing)
 
 
-def discover_listings(results_url, scrape_date, max_candidates=None):
+def discover_listings(scrape_date, max_candidates=None):
     return discover_completed_auctions(
-        results_url=results_url,
         scrape_date=scrape_date,
         max_candidates=max_candidates,
     )
@@ -79,13 +74,11 @@ def main(argv=None):
     try:
         if args.command == "discover":
             logger.info(
-                "BAT discover command started for results_url=%s scrape_date=%s max_candidates=%s",
-                args.results_url,
+                "BAT discover command started for scrape_date=%s max_candidates=%s",
                 args.scrape_date.isoformat(),
                 args.max_candidates,
             )
             summary = discover_listings(
-                results_url=args.results_url,
                 scrape_date=args.scrape_date,
                 max_candidates=args.max_candidates,
             )
@@ -104,8 +97,7 @@ def main(argv=None):
                 f"failed={summary.failed}"
             )
             logger.info(
-                "BAT discover command completed for results_url=%s scrape_date=%s",
-                args.results_url,
+                "BAT discover command completed for scrape_date=%s",
                 args.scrape_date.isoformat(),
             )
             return
@@ -122,8 +114,7 @@ def main(argv=None):
     except Exception:
         if args.command == "discover":
             logger.error(
-                "BAT discover command failed for results_url=%s scrape_date=%s",
-                args.results_url,
+                "BAT discover command failed for scrape_date=%s",
                 args.scrape_date.isoformat(),
             )
         else:

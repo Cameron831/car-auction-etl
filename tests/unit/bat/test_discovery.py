@@ -1,224 +1,84 @@
 import logging
-from datetime import date
-from pathlib import Path
+from datetime import date, datetime, timezone
 
 import pytest
 
 from app.sources.bat import discovery
 
-FIXTURES_DIR = Path(__file__).parents[2] / "fixtures"
 
-
-def test_parse_completed_auction_candidates_returns_normalized_unique_candidates():
-    candidates = discovery.parse_completed_auction_candidates(_results_html())
-
-    assert candidates == [
-        {
-            "source_site": "bringatrailer",
-            "listing_id": "newest-car",
-            "source_listing_id": "newest-car",
-            "url": "https://bringatrailer.com/listing/newest-car/",
-            "title": "1995 Porsche 911 Carrera Coupe",
-            "auction_end_date": "2026-04-19",
-            "source_location": "USA",
-        },
-        {
-            "source_site": "bringatrailer",
-            "listing_id": "older-car",
-            "source_listing_id": "older-car",
-            "url": "https://bringatrailer.com/listing/older-car/",
-            "title": "2004 BMW M3 Coupe",
-            "auction_end_date": "2026-04-18",
-            "source_location": "CAN",
-        },
-    ]
-
-
-def test_parse_completed_auction_candidates_starts_at_completed_auctions_section():
-    candidates = discovery.parse_completed_auction_candidates(
-        """
-        <main>
-            <h2>This Week's Popular Listings</h2>
-            <article>
-                <a href="/listing/popular-listing/">Popular listing</a>
-            </article>
-            <h2>Selected Market Results</h2>
-            <article>
-                <a href="/listing/market-result/">Market result</a>
-            </article>
-            <h2>Recent Exceptional Results</h2>
-            <a class="listing-card" href="/listing/exceptional-result/">
-                <h3>Exceptional result</h3>
-            </a>
-            <h2>All Completed Auctions</h2>
-            <a class="listing-card" href="/listing/target-listing/">
-                <h3>Target listing</h3>
-            </a>
-        </main>
-        """
-    )
-
-    assert [candidate["listing_id"] for candidate in candidates] == ["target-listing"]
-
-
-def test_parse_completed_auction_candidates_ignores_non_listing_links():
-    candidates = discovery.parse_completed_auction_candidates(
-        """
-        <main>
-            <h2>All Completed Auctions</h2>
-            <nav>
-                <a href="/">Home</a>
-                <a href="/auctions/">Auctions</a>
-                <a href="/search/?q=porsche">Search</a>
-                <a href="/parts/air-cooled-sign/">Parts</a>
-                <a href="/model/porsche-911/">Model market</a>
-                <a href="https://example.com/listing/not-bat/">External</a>
-                <a href="/listing/not-a-card/">Not a card</a>
-            </nav>
-            <a class="listing-card" href="/listing/real-listing/">
-                <h3>Real listing</h3>
-            </a>
-        </main>
-        """
-    )
-
-    assert [candidate["listing_id"] for candidate in candidates] == ["real-listing"]
-
-
-def test_parse_completed_auction_candidates_applies_max_after_normalization():
-    candidates = discovery.parse_completed_auction_candidates(
-        _results_html(), max_candidates=1
-    )
-
-    assert [candidate["listing_id"] for candidate in candidates] == ["newest-car"]
-
-
-def test_parse_completed_auction_candidates_allows_missing_metadata():
-    candidates = discovery.parse_completed_auction_candidates(
-        """
-        <main>
-            <h2>All Completed Auctions</h2>
-            <a class="listing-card" href="/listing/no-metadata/">View listing</a>
-        </main>
-        """
-    )
-
-    assert candidates == [
-        {
-            "source_site": "bringatrailer",
-            "listing_id": "no-metadata",
-            "source_listing_id": "no-metadata",
-            "url": "https://bringatrailer.com/listing/no-metadata/",
-        }
-    ]
-
-
-def test_parse_completed_auction_candidates_returns_empty_without_target_section():
-    candidates = discovery.parse_completed_auction_candidates(
-        """
-        <main>
-            <h2>This Week's Popular Listings</h2>
-            <article>
-                <a href="/listing/popular-listing/">Popular listing</a>
-            </article>
-        </main>
-        """
-    )
-
-    assert candidates == []
-
-
-def test_parse_completed_auction_candidates_ignores_json_initial_data_only():
-    candidates = discovery.parse_completed_auction_candidates(
-        """
-        <main>
-            <h2>All Completed Auctions</h2>
-            <script id="bat-theme-auctions-completed-initial-data">
-                var auctionsCompletedInitialData = {
-                    "items": [
-                        {
-                            "title": "JSON-only listing",
-                            "url": "https://bringatrailer.com/listing/json-only/"
-                        }
-                    ]
-                };
-            </script>
-        </main>
-        """
-    )
-
-    assert candidates == []
-
-
-def test_parse_completed_auction_candidates_reads_rendered_card_fixture():
-    card = (FIXTURES_DIR / "card.html").read_text(encoding="utf-8")
-
-    candidates = discovery.parse_completed_auction_candidates(
-        f"""
-        <main>
-            <h2>All Completed Auctions</h2>
-            {card}
-        </main>
-        """
-    )
-
-    assert candidates == [
-        {
-            "source_site": "bringatrailer",
-            "listing_id": "1958-gmc-pickup-7",
-            "source_listing_id": "1958-gmc-pickup-7",
-            "url": "https://bringatrailer.com/listing/1958-gmc-pickup-7/",
-            "title": "1958 GMC 9310 Stepside Pickup 3-Speed",
-            "auction_end_date": "2026-04-20",
-            "source_location": "CAN",
-        }
-    ]
-
-
-def test_fetch_completed_auctions_results_uses_url_and_timeout(mocker, caplog):
+def test_fetch_completed_auctions_page_uses_endpoint_params_and_timeout(mocker, caplog):
     response = mocker.Mock()
-    response.text = "<html>Results</html>"
+    response.json.return_value = {"items": [{"url": "https://bringatrailer.com/listing/test/"}]}
     response.raise_for_status = mocker.Mock()
     mock_get = mocker.patch("app.sources.bat.discovery.requests.get", return_value=response)
 
     caplog.set_level(logging.INFO)
-    html = discovery.fetch_completed_auctions_results(
-        "https://bringatrailer.com/auctions/results/"
-    )
+    payload = discovery.fetch_completed_auctions_page(2)
 
-    assert html == "<html>Results</html>"
+    assert payload == {"items": [{"url": "https://bringatrailer.com/listing/test/"}]}
     mock_get.assert_called_once_with(
-        "https://bringatrailer.com/auctions/results/",
+        discovery.LISTINGS_FILTER_URL,
+        params={
+            "page": 2,
+            "per_page": 60,
+            "get_items": 1,
+            "get_stats": 0,
+            "sort": "td",
+        },
         timeout=10,
     )
     response.raise_for_status.assert_called_once_with()
-    assert "Fetching BAT completed auctions results from url=https://bringatrailer.com/auctions/results/" in caplog.text
-    assert "Fetched BAT completed auctions results from url=https://bringatrailer.com/auctions/results/" in caplog.text
+    response.json.assert_called_once_with()
+    assert "Fetching BAT completed auctions page=2" in caplog.text
+    assert "Fetched BAT completed auctions page=2 items=1" in caplog.text
 
 
-def test_discover_completed_auctions_returns_summary_counts(mocker):
-    mocker.patch(
-        "app.sources.bat.discovery.fetch_completed_auctions_results",
-        return_value="<html>Results</html>",
+def test_normalize_completed_auction_candidate_maps_endpoint_item():
+    candidate = discovery.normalize_completed_auction_candidate(
+        {
+            "url": "https://bringatrailer.com/listing/test-listing/?utm_source=feed#comments",
+            "title": " 2004 BMW M3 Coupe ",
+            "timestamp_end": _timestamp("2026-04-20"),
+            "country_code": "USA",
+        }
     )
-    mocker.patch(
-        "app.sources.bat.discovery.parse_completed_auction_candidates",
-        return_value=[
+
+    assert candidate == {
+        "source_site": "bringatrailer",
+        "listing_id": "test-listing",
+        "source_listing_id": "test-listing",
+        "url": "https://bringatrailer.com/listing/test-listing/",
+        "title": "2004 BMW M3 Coupe",
+        "auction_end_date": "2026-04-20",
+        "source_location": "USA",
+    }
+
+
+def test_normalize_completed_auction_candidate_allows_missing_optional_metadata():
+    candidate = discovery.normalize_completed_auction_candidate(
+        {"url": "/listing/test-listing/"}
+    )
+
+    assert candidate == {
+        "source_site": "bringatrailer",
+        "listing_id": "test-listing",
+        "source_listing_id": "test-listing",
+        "url": "https://bringatrailer.com/listing/test-listing/",
+    }
+
+
+def test_discover_completed_auctions_returns_summary_counts_across_pages(mocker):
+    fetch_completed_auctions_page = mocker.patch(
+        "app.sources.bat.discovery.fetch_completed_auctions_page",
+        side_effect=[
             {
-                "listing_id": "new-car",
-                "url": "https://bringatrailer.com/listing/new-car/",
-                "auction_end_date": "2026-04-20",
+                "items": [
+                    _item("new-car", "2026-04-20", "New Car"),
+                    _item("existing-car", "2026-04-20", "Existing Car"),
+                ]
             },
-            {
-                "listing_id": "existing-car",
-                "url": "https://bringatrailer.com/listing/existing-car/",
-                "auction_end_date": "2026-04-20",
-            },
-            {
-                "listing_id": "broken-car",
-                "url": "https://bringatrailer.com/listing/broken-car/",
-                "auction_end_date": "2026-04-20",
-            },
+            {"items": [_item("broken-car", "2026-04-20", "Broken Car")]},
+            {"items": []},
         ],
     )
     save_discovered_listing = mocker.patch(
@@ -227,9 +87,7 @@ def test_discover_completed_auctions_returns_summary_counts(mocker):
     )
 
     summary = discovery.discover_completed_auctions(
-        results_url="https://bringatrailer.com/auctions/results/",
         scrape_date=date(2026, 4, 20),
-        max_candidates=3,
     )
 
     assert summary == discovery.DiscoverySummary(
@@ -238,37 +96,22 @@ def test_discover_completed_auctions_returns_summary_counts(mocker):
         already_discovered_or_updated=1,
         failed=1,
     )
+    assert [call.args[0] for call in fetch_completed_auctions_page.call_args_list] == [1, 2, 3]
     assert save_discovered_listing.call_count == 3
 
 
 def test_discover_completed_auctions_stops_when_candidate_is_older_than_scrape_date(mocker):
-    mocker.patch(
-        "app.sources.bat.discovery.fetch_completed_auctions_results",
-        return_value="<html>Results</html>",
-    )
-    mocker.patch(
-        "app.sources.bat.discovery.parse_completed_auction_candidates",
-        return_value=[
+    fetch_completed_auctions_page = mocker.patch(
+        "app.sources.bat.discovery.fetch_completed_auctions_page",
+        side_effect=[
             {
-                "listing_id": "newest-car",
-                "url": "https://bringatrailer.com/listing/newest-car/",
-                "auction_end_date": "2026-04-20",
+                "items": [
+                    _item("newest-car", "2026-04-20"),
+                    _item("same-day-car", "2026-04-20"),
+                    _item("older-car", "2026-04-19"),
+                ]
             },
-            {
-                "listing_id": "same-day-car",
-                "url": "https://bringatrailer.com/listing/same-day-car/",
-                "auction_end_date": "2026-04-20",
-            },
-            {
-                "listing_id": "older-car",
-                "url": "https://bringatrailer.com/listing/older-car/",
-                "auction_end_date": "2026-04-19",
-            },
-            {
-                "listing_id": "oldest-car",
-                "url": "https://bringatrailer.com/listing/oldest-car/",
-                "auction_end_date": "2026-04-18",
-            },
+            {"items": [_item("should-not-fetch", "2026-04-19")]},
         ],
     )
     save_discovered_listing = mocker.patch(
@@ -277,7 +120,6 @@ def test_discover_completed_auctions_stops_when_candidate_is_older_than_scrape_d
     )
 
     summary = discovery.discover_completed_auctions(
-        results_url="https://bringatrailer.com/auctions/results/",
         scrape_date="2026-04-20",
     )
 
@@ -291,35 +133,24 @@ def test_discover_completed_auctions_stops_when_candidate_is_older_than_scrape_d
         "newest-car",
         "same-day-car",
     ]
+    assert [call.args[0] for call in fetch_completed_auctions_page.call_args_list] == [1]
 
 
 def test_discover_completed_auctions_marks_missing_auction_end_date_as_failed(mocker):
     mocker.patch(
-        "app.sources.bat.discovery.fetch_completed_auctions_results",
-        return_value="<html>Results</html>",
-    )
-    mocker.patch(
-        "app.sources.bat.discovery.parse_completed_auction_candidates",
-        return_value=[
-            {
-                "listing_id": "missing-date",
-                "url": "https://bringatrailer.com/listing/missing-date/",
-            },
-            {
-                "listing_id": "in-scope",
-                "url": "https://bringatrailer.com/listing/in-scope/",
-                "auction_end_date": "2026-04-20",
-            },
+        "app.sources.bat.discovery.fetch_completed_auctions_page",
+        side_effect=[
+            {"items": [{"url": "https://bringatrailer.com/listing/missing-date/"}]},
+            {"items": [_item("in-scope", "2026-04-20")]},
+            {"items": []},
         ],
     )
     save_discovered_listing = mocker.patch(
         "app.sources.bat.discovery.save_discovered_listing",
         return_value=True,
     )
-    raw_html_writer = mocker.patch("app.sources.bat.ingest.save_listing_html")
 
     summary = discovery.discover_completed_auctions(
-        results_url="https://bringatrailer.com/auctions/results/",
         scrape_date=date(2026, 4, 20),
     )
 
@@ -331,12 +162,108 @@ def test_discover_completed_auctions_marks_missing_auction_end_date_as_failed(mo
     )
     save_discovered_listing.assert_called_once_with(
         {
+            "source_site": "bringatrailer",
             "listing_id": "in-scope",
+            "source_listing_id": "in-scope",
             "url": "https://bringatrailer.com/listing/in-scope/",
+            "title": "In Scope",
             "auction_end_date": "2026-04-20",
+            "source_location": "USA",
         }
     )
-    raw_html_writer.assert_not_called()
+
+
+def test_discover_completed_auctions_stops_at_max_candidates_without_extra_page_fetch(mocker):
+    fetch_completed_auctions_page = mocker.patch(
+        "app.sources.bat.discovery.fetch_completed_auctions_page",
+        side_effect=[
+            {
+                "items": [
+                    _item("first-car", "2026-04-20"),
+                    _item("second-car", "2026-04-20"),
+                    _item("third-car", "2026-04-20"),
+                ]
+            },
+            {"items": [_item("should-not-fetch", "2026-04-20")]},
+        ],
+    )
+    save_discovered_listing = mocker.patch(
+        "app.sources.bat.discovery.save_discovered_listing",
+        return_value=True,
+    )
+
+    summary = discovery.discover_completed_auctions(
+        scrape_date="2026-04-20",
+        max_candidates=2,
+    )
+
+    assert summary == discovery.DiscoverySummary(
+        candidates_inspected=2,
+        newly_discovered=2,
+        already_discovered_or_updated=0,
+        failed=0,
+    )
+    assert [call.args[0]["listing_id"] for call in save_discovered_listing.call_args_list] == [
+        "first-car",
+        "second-car",
+    ]
+    assert [call.args[0] for call in fetch_completed_auctions_page.call_args_list] == [1]
+
+
+def test_discover_completed_auctions_stops_when_endpoint_returns_no_items(mocker):
+    fetch_completed_auctions_page = mocker.patch(
+        "app.sources.bat.discovery.fetch_completed_auctions_page",
+        side_effect=[
+            {"items": [_item("first-car", "2026-04-20")]},
+            {"items": []},
+        ],
+    )
+    save_discovered_listing = mocker.patch(
+        "app.sources.bat.discovery.save_discovered_listing",
+        return_value=True,
+    )
+
+    summary = discovery.discover_completed_auctions(
+        scrape_date="2026-04-20",
+    )
+
+    assert summary == discovery.DiscoverySummary(
+        candidates_inspected=1,
+        newly_discovered=1,
+        already_discovered_or_updated=0,
+        failed=0,
+    )
+    assert [call.args[0] for call in fetch_completed_auctions_page.call_args_list] == [1, 2]
+    save_discovered_listing.assert_called_once()
+
+
+def test_discover_completed_auctions_counts_normalization_failures_and_continues(mocker):
+    mocker.patch(
+        "app.sources.bat.discovery.fetch_completed_auctions_page",
+        side_effect=[
+            {
+                "items": [
+                    {"url": "https://example.com/not-bat/"},
+                    _item("valid-car", "2026-04-20"),
+                ]
+            },
+            {"items": []},
+        ],
+    )
+    save_discovered_listing = mocker.patch(
+        "app.sources.bat.discovery.save_discovered_listing",
+        return_value=True,
+    )
+
+    summary = discovery.discover_completed_auctions(scrape_date="2026-04-20")
+
+    assert summary == discovery.DiscoverySummary(
+        candidates_inspected=1,
+        newly_discovered=1,
+        already_discovered_or_updated=0,
+        failed=1,
+    )
+    save_discovered_listing.assert_called_once()
 
 
 def test_build_discovered_listing_params_maps_candidate_to_schema_columns():
@@ -452,34 +379,19 @@ def _candidate():
     }
 
 
-def _results_html():
-    return """
-    <main>
-        <section>
-            <h2>All Completed Auctions</h2>
-            <a class="listing-card" href="/listing/newest-car/?utm_source=feed">
-                <div class="content-main">
-                    <h3>1995 Porsche 911 Carrera Coupe</h3>
-                    <span class="show-country-name">USA</span>
-                    <div class="item-results">
-                        Sold for USD $19,911 <span> on 04/19/2026 </span>
-                    </div>
-                </div>
-            </a>
-            <a class="listing-card" href="https://bringatrailer.com/listing/newest-car#comments">
-                <div class="content-main">
-                    <h3>Duplicate link</h3>
-                </div>
-            </a>
-            <a class="listing-card" href="https://bringatrailer.com/listing/older-car/">
-                <div class="content-main">
-                    <h3>2004 BMW M3 Coupe</h3>
-                    <span class="show-country-name">CAN</span>
-                    <div class="item-results">
-                        Bid to USD $30,000 <span> on 04/18/2026 </span>
-                    </div>
-                </div>
-            </a>
-        </section>
-    </main>
-    """
+def _item(listing_id, auction_end_date, title=None, country_code="USA"):
+    return {
+        "url": f"https://bringatrailer.com/listing/{listing_id}/",
+        "title": title or listing_id.replace("-", " ").title(),
+        "timestamp_end": _timestamp(auction_end_date),
+        "country_code": country_code,
+        "pages_total": 999,
+    }
+
+
+def _timestamp(iso_date):
+    return int(
+        datetime.fromisoformat(f"{iso_date}T12:00:00+00:00")
+        .astimezone(timezone.utc)
+        .timestamp()
+    )
