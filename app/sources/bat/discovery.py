@@ -7,6 +7,7 @@ from urllib.parse import urljoin, urlparse
 
 import psycopg
 import requests
+from psycopg.rows import dict_row
 
 
 SOURCE_SITE = "bringatrailer"
@@ -40,6 +41,44 @@ ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
     source_location = EXCLUDED.source_location,
     last_seen_at = NOW()
 RETURNING xmax = 0 AS inserted
+"""
+
+SELECT_PENDING_DISCOVERED_LISTINGS_SQL = """
+SELECT
+    id,
+    source_site,
+    source_listing_id,
+    url,
+    title,
+    auction_end_date,
+    source_location,
+    eligible,
+    eligibility_reason,
+    discovered_at,
+    last_seen_at,
+    ingested_at
+FROM discovered_listings
+WHERE source_site = %(source_site)s
+  AND ingested_at IS NULL
+ORDER BY discovered_at ASC, id ASC
+"""
+
+MARK_DISCOVERED_LISTING_HANDLED_INELIGIBLE_SQL = """
+UPDATE discovered_listings
+SET ingested_at = NOW(),
+    eligible = FALSE,
+    eligibility_reason = %(eligibility_reason)s
+WHERE source_site = %(source_site)s
+  AND source_listing_id = %(source_listing_id)s
+"""
+
+MARK_DISCOVERED_LISTING_HANDLED_ELIGIBLE_SQL = """
+UPDATE discovered_listings
+SET ingested_at = NOW(),
+    eligible = TRUE,
+    eligibility_reason = NULL
+WHERE source_site = %(source_site)s
+  AND source_listing_id = %(source_listing_id)s
 """
 
 
@@ -177,9 +216,7 @@ def discover_completed_auctions(scrape_date, max_candidates=None):
 
 
 def save_discovered_listing(candidate):
-    database_url = os.environ.get("DATABASE_URL")
-    if not database_url:
-        raise RuntimeError("DATABASE_URL must be set")
+    database_url = _get_database_url()
 
     params = build_discovered_listing_params(candidate)
 
@@ -194,6 +231,48 @@ def save_discovered_listing(candidate):
             return inserted
 
 
+def load_pending_discovered_listings(limit=None):
+    database_url = _get_database_url()
+    params = {"source_site": SOURCE_SITE}
+    sql = SELECT_PENDING_DISCOVERED_LISTINGS_SQL
+
+    if limit is not None:
+        if limit <= 0:
+            return []
+        sql = f"{sql}\nLIMIT %(limit)s"
+        params["limit"] = limit
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, params)
+            return cur.fetchall()
+
+
+def mark_discovered_listing_handled_ineligible(listing_id, reason):
+    database_url = _get_database_url()
+    params = {
+        "source_site": SOURCE_SITE,
+        "source_listing_id": listing_id,
+        "eligibility_reason": reason,
+    }
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(MARK_DISCOVERED_LISTING_HANDLED_INELIGIBLE_SQL, params)
+
+
+def mark_discovered_listing_handled_eligible(listing_id):
+    database_url = _get_database_url()
+    params = {
+        "source_site": SOURCE_SITE,
+        "source_listing_id": listing_id,
+    }
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(MARK_DISCOVERED_LISTING_HANDLED_ELIGIBLE_SQL, params)
+
+
 def build_discovered_listing_params(candidate):
     return {
         "source_site": SOURCE_SITE,
@@ -203,6 +282,13 @@ def build_discovered_listing_params(candidate):
         "auction_end_date": candidate.get("auction_end_date"),
         "source_location": candidate.get("source_location"),
     }
+
+
+def _get_database_url():
+    database_url = os.environ.get("DATABASE_URL")
+    if not database_url:
+        raise RuntimeError("DATABASE_URL must be set")
+    return database_url
 
 
 def _normalize_scrape_date(value):

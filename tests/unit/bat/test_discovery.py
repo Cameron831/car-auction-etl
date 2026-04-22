@@ -369,6 +369,206 @@ def test_save_discovered_listing_requires_database_url(mocker):
         discovery.save_discovered_listing(_candidate())
 
 
+def test_load_pending_discovered_listings_selects_pending_bat_rows_in_stable_order(mocker):
+    calls = {"executions": [], "cursor_kwargs": []}
+    expected_rows = [
+        {
+            "id": 1,
+            "source_site": "bringatrailer",
+            "source_listing_id": "first-listing",
+            "url": "https://bringatrailer.com/listing/first-listing/",
+            "title": "First Listing",
+            "auction_end_date": date(2026, 3, 30),
+            "source_location": "USA",
+            "eligible": None,
+            "eligibility_reason": None,
+            "discovered_at": datetime(2026, 4, 20, 8, 0, tzinfo=timezone.utc),
+            "last_seen_at": datetime(2026, 4, 20, 8, 0, tzinfo=timezone.utc),
+            "ingested_at": None,
+        }
+    ]
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["executions"].append((sql, params))
+
+        def fetchall(self):
+            return expected_rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self, **kwargs):
+            calls["cursor_kwargs"].append(kwargs)
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
+
+    rows = discovery.load_pending_discovered_listings()
+
+    sql, params = calls["executions"][0]
+    assert rows == expected_rows
+    assert calls["cursor_kwargs"] == [{"row_factory": discovery.dict_row}]
+    assert "FROM discovered_listings" in sql
+    assert "WHERE source_site = %(source_site)s" in sql
+    assert "AND ingested_at IS NULL" in sql
+    assert "ORDER BY discovered_at ASC, id ASC" in sql
+    assert "LIMIT %(limit)s" not in sql
+    assert params == {"source_site": "bringatrailer"}
+
+
+def test_load_pending_discovered_listings_applies_optional_limit(mocker):
+    calls = {"executions": []}
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["executions"].append((sql, params))
+
+        def fetchall(self):
+            return []
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self, **kwargs):
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
+
+    assert discovery.load_pending_discovered_listings(limit=2) == []
+
+    sql, params = calls["executions"][0]
+    assert "LIMIT %(limit)s" in sql
+    assert params == {"source_site": "bringatrailer", "limit": 2}
+
+
+def test_load_pending_discovered_listings_returns_empty_without_query_for_non_positive_limit(mocker):
+    connect = mocker.patch.object(discovery.psycopg, "connect")
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+
+    assert discovery.load_pending_discovered_listings(limit=0) == []
+    connect.assert_not_called()
+
+
+def test_mark_discovered_listing_handled_ineligible_updates_state(mocker):
+    calls = {"executions": []}
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["executions"].append((sql, params))
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self):
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
+
+    discovery.mark_discovered_listing_handled_ineligible(
+        "test-listing",
+        "auction did not meet eligibility rules",
+    )
+
+    sql, params = calls["executions"][0]
+    assert "UPDATE discovered_listings" in sql
+    assert "SET ingested_at = NOW()" in sql
+    assert "eligible = FALSE" in sql
+    assert "eligibility_reason = %(eligibility_reason)s" in sql
+    assert params == {
+        "source_site": "bringatrailer",
+        "source_listing_id": "test-listing",
+        "eligibility_reason": "auction did not meet eligibility rules",
+    }
+
+
+def test_mark_discovered_listing_handled_eligible_updates_state(mocker):
+    calls = {"executions": []}
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["executions"].append((sql, params))
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self):
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
+
+    discovery.mark_discovered_listing_handled_eligible("test-listing")
+
+    sql, params = calls["executions"][0]
+    assert "UPDATE discovered_listings" in sql
+    assert "SET ingested_at = NOW()" in sql
+    assert "eligible = TRUE" in sql
+    assert "eligibility_reason = NULL" in sql
+    assert params == {
+        "source_site": "bringatrailer",
+        "source_listing_id": "test-listing",
+    }
+
+
 def _candidate():
     return {
         "listing_id": "test-listing",
