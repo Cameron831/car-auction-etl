@@ -182,6 +182,20 @@ def test_ingest_discovered_command_parses_with_batch_size():
     assert args.batch_size == 5
 
 
+def test_transform_discovered_command_parses_without_batch_size():
+    args = cli.build_parser().parse_args(["transform-discovered"])
+
+    assert args.command == "transform-discovered"
+    assert args.batch_size is None
+
+
+def test_transform_discovered_command_parses_with_batch_size():
+    args = cli.build_parser().parse_args(["transform-discovered", "--batch-size", "5"])
+
+    assert args.command == "transform-discovered"
+    assert args.batch_size == 5
+
+
 def test_ingest_discovered_command_dispatches_with_parsed_options(mocker, caplog, capsys):
     ingest_discovered_listings = mocker.patch(
         "app.sources.bat.cli.ingest_discovered_listings",
@@ -232,6 +246,53 @@ def test_ingest_discovered_command_logs_failure_context_without_traceback_and_re
     assert "RuntimeError: ingest-discovered failed" not in caplog.text
 
 
+def test_transform_discovered_command_dispatches_with_parsed_options(mocker, caplog, capsys):
+    transform_discovered_listings = mocker.patch(
+        "app.sources.bat.cli.transform_discovered_listings",
+        return_value=cli.BatchTransformSummary(
+            selected=3,
+            transformed_and_loaded=1,
+            transform_failed=1,
+            load_failed=1,
+        ),
+    )
+
+    caplog.set_level(logging.INFO)
+    cli.main(["transform-discovered", "--batch-size", "5"])
+
+    transform_discovered_listings.assert_called_once_with(batch_size=5)
+    assert "BAT transform-discovered command started for batch_size=5" in caplog.text
+    assert (
+        "BAT transform-discovered summary selected=3 transformed_and_loaded=1 "
+        "transform_failed=1 load_failed=1"
+    ) in caplog.text
+    assert "BAT transform-discovered command completed for batch_size=5" in caplog.text
+    assert (
+        "Transform-discovered summary: selected=3 transformed_and_loaded=1 "
+        "transform_failed=1 load_failed=1"
+    ) in capsys.readouterr().out
+
+
+def test_transform_discovered_command_logs_failure_context_without_traceback_and_reraises(
+    mocker, caplog
+):
+    error = RuntimeError("transform-discovered failed")
+    mocker.patch(
+        "app.sources.bat.cli.transform_discovered_listings",
+        side_effect=error,
+    )
+
+    caplog.set_level(logging.INFO)
+    with pytest.raises(RuntimeError) as exc_info:
+        cli.main(["transform-discovered", "--batch-size", "5"])
+
+    assert exc_info.value is error
+    assert "BAT transform-discovered command started for batch_size=5" in caplog.text
+    assert "BAT transform-discovered command failed for batch_size=5" in caplog.text
+    assert "Traceback" not in caplog.text
+    assert "RuntimeError: transform-discovered failed" not in caplog.text
+
+
 def test_ingest_discovered_listings_returns_zeroed_summary_for_empty_batch(mocker):
     mocker.patch(
         "app.sources.bat.cli.load_pending_discovered_listings",
@@ -241,6 +302,17 @@ def test_ingest_discovered_listings_returns_zeroed_summary_for_empty_batch(mocke
     summary = cli.ingest_discovered_listings()
 
     assert summary == cli.BatchIngestSummary()
+
+
+def test_transform_discovered_listings_returns_zeroed_summary_for_empty_batch(mocker):
+    mocker.patch(
+        "app.sources.bat.cli.load_pending_raw_listing_html",
+        return_value=[],
+    )
+
+    summary = cli.transform_discovered_listings()
+
+    assert summary == cli.BatchTransformSummary()
 
 
 def test_ingest_discovered_listings_marks_stage_1_reject_without_scrape(mocker):
@@ -510,6 +582,59 @@ def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):
         url="https://bringatrailer.com/listing/accepted/",
     )
     mark_eligible.assert_called_once_with("accepted")
+
+
+def test_transform_discovered_listings_handles_mixed_batch_outcomes(mocker, caplog):
+    mocker.patch(
+        "app.sources.bat.cli.load_pending_raw_listing_html",
+        return_value=[
+            {"source_listing_id": "transform-fail"},
+            {"source_listing_id": "load-fail"},
+            {"source_listing_id": "success"},
+        ],
+    )
+    transformed_load_fail = {"listing_id": "load-fail"}
+    transformed_success = {"listing_id": "success"}
+    mocker.patch(
+        "app.sources.bat.cli.transform_listing_html",
+        side_effect=[
+            RuntimeError("missing raw html"),
+            transformed_load_fail,
+            transformed_success,
+        ],
+    )
+    load_listing = mocker.patch(
+        "app.sources.bat.cli.load_listing",
+        side_effect=[
+            RuntimeError("constraint violation"),
+            None,
+        ],
+    )
+
+    caplog.set_level(logging.ERROR)
+    summary = cli.transform_discovered_listings(batch_size=3)
+
+    load_listing.assert_has_calls(
+        [
+            mocker.call(transformed_load_fail),
+            mocker.call(transformed_success),
+        ]
+    )
+    assert summary == cli.BatchTransformSummary(
+        selected=3,
+        transformed_and_loaded=1,
+        transform_failed=1,
+        load_failed=1,
+    )
+    assert (
+        "BAT transform-discovered row failed for listing_id=transform-fail "
+        "stage=transform error=missing raw html"
+    ) in caplog.text
+    assert (
+        "BAT transform-discovered row failed for listing_id=load-fail "
+        "stage=load error=constraint violation"
+    ) in caplog.text
+    assert "Traceback" not in caplog.text
 
 
 @pytest.mark.parametrize("command", ["ingest", "transform", "load", "run"])

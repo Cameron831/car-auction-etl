@@ -105,6 +105,116 @@ def test_load_listing_html_requires_database_url(mocker):
         transform.load_listing_html("test-id")
 
 
+def test_load_pending_raw_listing_html_selects_unprocessed_rows_in_stable_order(mocker):
+    calls = {}
+    expected_rows = [
+        {"source_listing_id": "first"},
+        {"source_listing_id": "second"},
+    ]
+
+    class FakeCursor:
+        def __init__(self, rows):
+            self._rows = rows
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["sql"] = sql
+            calls["params"] = params
+
+        def fetchall(self):
+            return self._rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self, row_factory=None):
+            calls["row_factory"] = row_factory
+            return FakeCursor(expected_rows)
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(transform.psycopg, "connect", return_value=FakeConnection())
+
+    rows = transform.load_pending_raw_listing_html()
+
+    assert rows == expected_rows
+    assert "FROM raw_listing_html" in calls["sql"]
+    assert "processed = FALSE" in calls["sql"]
+    assert "ORDER BY created_at ASC, id ASC" in calls["sql"]
+    assert "LIMIT %(limit)s" not in calls["sql"]
+    assert calls["params"] == {"source_site": "bringatrailer"}
+    assert calls["row_factory"] is transform.dict_row
+
+
+def test_load_pending_raw_listing_html_applies_optional_limit(mocker):
+    calls = {}
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["sql"] = sql
+            calls["params"] = params
+
+        def fetchall(self):
+            return [{"source_listing_id": "first"}]
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self, row_factory=None):
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(transform.psycopg, "connect", return_value=FakeConnection())
+
+    rows = transform.load_pending_raw_listing_html(limit=1)
+
+    assert rows == [{"source_listing_id": "first"}]
+    assert "LIMIT %(limit)s" in calls["sql"]
+    assert calls["params"] == {"source_site": "bringatrailer", "limit": 1}
+
+
+def test_load_pending_raw_listing_html_returns_empty_for_non_positive_limit(mocker):
+    connect = mocker.patch.object(transform.psycopg, "connect")
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+
+    assert transform.load_pending_raw_listing_html(limit=0) == []
+    connect.assert_not_called()
+
+
+def test_load_pending_raw_listing_html_requires_database_url(mocker):
+    mocker.patch.dict("os.environ", {}, clear=True)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL must be set"):
+        transform.load_pending_raw_listing_html()
+
+
 def test_transform_listing_html_logs_success_without_raw_html(mocker, caplog):
     mocker.patch.object(transform, "load_listing_html", return_value="<html>SENSITIVE_RAW_HTML</html>")
     mocker.patch.object(transform, "get_product_json_ld", return_value={"name": "One Owner 2004 BMW M3"})
