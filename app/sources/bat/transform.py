@@ -155,12 +155,13 @@ def evaluate_listing_eligibility(soup, listing_title):
         return False, "year before 1946"
 
     try:
-        category = extract_group_value(soup, "Category")
+        categories = extract_group_value(soup, "Category")
     except ValueError:
         return True, None
 
-    if _normalize_category_value(category) in EXCLUDED_CATEGORY_VALUES:
-        return False, f"excluded category: {category}"
+    for category in categories:
+        if _normalize_category_value(category) in EXCLUDED_CATEGORY_VALUES:
+            return False, f"excluded category: {category}"
 
     return True, None
 
@@ -208,12 +209,14 @@ def parse_year(title):
     return int(match.group(1))
 
 def parse_model(soup):
-    return extract_group_value(soup, "Model")
+    return extract_group_value(soup, "Model")[0]
 
 def parse_make(soup):
-    return extract_group_value(soup, "Make")
+    return extract_group_value(soup, "Make")[0]
 
-def extract_group_value(soup: BeautifulSoup, label: str) -> str:
+def extract_group_value(soup: BeautifulSoup, label: str) -> list[str]:
+    values = []
+
     for label_tag in soup.select("strong.group-title-label"):
         if label_tag.get_text(strip=True) != label:
             continue
@@ -232,9 +235,12 @@ def extract_group_value(soup: BeautifulSoup, label: str) -> str:
         if not value:
             raise ValueError(f"Found '{label}' group but it had no value")
 
-        return value
+        values.append(value)
 
-    raise ValueError(f"Could not find '{label}' group")
+    if not values:
+        raise ValueError(f"Could not find '{label}' group")
+
+    return values
 
 def get_listing_details(soup):
     details_header = soup.find("strong", string=re.compile(r"Listing Details"))

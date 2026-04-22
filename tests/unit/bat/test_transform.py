@@ -434,6 +434,25 @@ def test_parse_model_valid_group_link():
     model = transform.parse_model(soup)
     assert model == "Porsche 911 Carrera 3.2"
 
+def test_parse_model_returns_first_matching_value():
+    html_content = """
+    <html>
+        <body>
+            <a class="group-link" href="/911/">
+                <strong class="group-title-label">Model</strong>
+                Porsche 911
+            </a>
+            <a class="group-link" href="/911-carrera/">
+                <strong class="group-title-label">Model</strong>
+                Porsche 911 Carrera
+            </a>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    assert transform.parse_model(soup) == "Porsche 911"
+
 def test_parse_model_not_found():
     html_content = """
     <html>
@@ -479,6 +498,25 @@ def test_parse_make_valid_group_link():
     make = transform.parse_make(soup)
     assert make == "Porsche"
 
+def test_parse_make_returns_first_matching_value():
+    html_content = """
+    <html>
+        <body>
+            <a class="group-link" href="/porsche/">
+                <strong class="group-title-label">Make</strong>
+                Porsche
+            </a>
+            <a class="group-link" href="/volkswagen/">
+                <strong class="group-title-label">Make</strong>
+                Volkswagen
+            </a>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    assert transform.parse_make(soup) == "Porsche"
+
 def test_parse_make_not_found():
     html_content = """
     <html>
@@ -495,7 +533,7 @@ def test_parse_make_not_found():
         transform.parse_make(soup)
 
 
-def test_extract_group_value_reads_category_from_group_link():
+def test_extract_group_value_reads_all_category_values_from_group_links():
     soup = BeautifulSoup(
         """
         <html>
@@ -504,13 +542,20 @@ def test_extract_group_value_reads_category_from_group_link():
                     <strong class="group-title-label">Category</strong>
                     Truck & 4x4
                 </a>
+                <a class="group-link" href="/convertible/">
+                    <strong class="group-title-label">Category</strong>
+                    Convertibles
+                </a>
             </body>
         </html>
         """,
         "html.parser",
     )
 
-    assert transform.extract_group_value(soup, "Category") == "Truck & 4x4"
+    assert transform.extract_group_value(soup, "Category") == [
+        "Truck & 4x4",
+        "Convertibles",
+    ]
 
 
 def test_evaluate_listing_eligibility_rejects_missing_or_unparseable_year():
@@ -536,6 +581,30 @@ def test_evaluate_listing_eligibility_rejects_excluded_category():
         """
         <html>
             <body>
+                <a class="group-link" href="/parts/">
+                    <strong class="group-title-label">Category</strong>
+                    Parts
+                </a>
+            </body>
+        </html>
+        """,
+        "html.parser",
+    )
+
+    assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (
+        False,
+        "excluded category: Parts",
+    )
+
+def test_evaluate_listing_eligibility_rejects_when_any_category_is_excluded():
+    soup = BeautifulSoup(
+        """
+        <html>
+            <body>
+                <a class="group-link" href="/convertible/">
+                    <strong class="group-title-label">Category</strong>
+                    Convertibles
+                </a>
                 <a class="group-link" href="/parts/">
                     <strong class="group-title-label">Category</strong>
                     Parts
@@ -637,6 +706,27 @@ def test_evaluate_listing_eligibility_does_not_reject_non_excluded_category():
     )
 
     assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (True, None)
+
+def test_evaluate_listing_eligibility_allows_multiple_non_excluded_categories():
+    soup = BeautifulSoup(
+        """
+        <html>
+            <body>
+                <a class="group-link" href="/convertible/">
+                    <strong class="group-title-label">Category</strong>
+                    Convertibles
+                </a>
+                <a class="group-link" href="/truck-4x4/">
+                    <strong class="group-title-label">Category</strong>
+                    Truck & 4x4
+                </a>
+            </body>
+        </html>
+        """,
+        "html.parser",
+    )
+
+    assert transform.evaluate_listing_eligibility(soup, "1967 Ford F-250") == (True, None)
 
 
 def test_evaluate_listing_eligibility_keeps_truck_and_4x4_in_scope():
