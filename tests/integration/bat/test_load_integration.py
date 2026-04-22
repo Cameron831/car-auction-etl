@@ -6,6 +6,7 @@ from pathlib import Path
 import psycopg
 import pytest
 
+from app.sources.bat import discovery
 from app.sources.bat.load import load_listing
 
 """
@@ -130,6 +131,80 @@ def test_load_listing_upserts_into_postgres_container(monkeypatch):
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
 
 
+def test_discovery_helpers_select_pending_rows_and_persist_handled_state(monkeypatch):
+    if not _docker_daemon_available():
+        pytest.skip("Docker daemon is not available")
+
+    container_name = f"auction-discovery-test-{uuid.uuid4().hex}"
+    schema_mount = f"{SCHEMA_PATH}:/docker-entrypoint-initdb.d/001-schema.sql:ro"
+
+    try:
+        _run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-d",
+                "--name",
+                container_name,
+                "-e",
+                "POSTGRES_DB=auction_etl",
+                "-e",
+                "POSTGRES_USER=auction_user",
+                "-e",
+                "POSTGRES_PASSWORD=localdevpassword",
+                "-p",
+                "127.0.0.1::5432",
+                "-v",
+                schema_mount,
+                "postgres:17",
+            ]
+        )
+        _wait_for_postgres(container_name)
+
+        port = _host_port(container_name)
+        database_url = (
+            f"postgresql://auction_user:localdevpassword@127.0.0.1:{port}/auction_etl"
+        )
+        _wait_for_database_url(database_url)
+        monkeypatch.setenv("DATABASE_URL", database_url)
+        _insert_discovered_listing_rows(database_url)
+
+        pending_rows = discovery.load_pending_discovered_listings()
+        pending_ids = [row["source_listing_id"] for row in pending_rows]
+
+        limited_rows = discovery.load_pending_discovered_listings(limit=1)
+        limited_ids = [row["source_listing_id"] for row in limited_rows]
+
+        discovery.mark_discovered_listing_handled_ineligible(
+            "first-pending",
+            "sale_price missing",
+        )
+        discovery.mark_discovered_listing_handled_eligible("second-pending")
+
+        with psycopg.connect(database_url) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT source_listing_id, eligible, eligibility_reason, ingested_at IS NOT NULL
+                    FROM discovered_listings
+                    WHERE source_site = 'bringatrailer'
+                      AND source_listing_id IN ('first-pending', 'second-pending')
+                    ORDER BY source_listing_id ASC
+                    """
+                )
+                state_rows = cur.fetchall()
+
+        assert pending_ids == ["first-pending", "second-pending"]
+        assert limited_ids == ["first-pending"]
+        assert state_rows == [
+            ("first-pending", False, "sale_price missing", True),
+            ("second-pending", True, None, True),
+        ]
+    finally:
+        subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
+
+
 def _transformed_listing(sale_price, details):
     return {
         "source_site": "bringatrailer",
@@ -146,6 +221,75 @@ def _transformed_listing(sale_price, details):
         "transmission": "manual",
         "listing_details_raw": details,
     }
+
+
+def _insert_discovered_listing_rows(database_url):
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO discovered_listings (
+                    id,
+                    source_site,
+                    source_listing_id,
+                    url,
+                    title,
+                    auction_end_date,
+                    source_location,
+                    discovered_at,
+                    last_seen_at,
+                    ingested_at
+                ) VALUES
+                    (
+                        10,
+                        'bringatrailer',
+                        'first-pending',
+                        'https://bringatrailer.com/listing/first-pending/',
+                        'First Pending',
+                        DATE '2026-03-30',
+                        'USA',
+                        TIMESTAMPTZ '2026-04-20 08:00:00+00',
+                        TIMESTAMPTZ '2026-04-20 08:00:00+00',
+                        NULL
+                    ),
+                    (
+                        20,
+                        'bringatrailer',
+                        'second-pending',
+                        'https://bringatrailer.com/listing/second-pending/',
+                        'Second Pending',
+                        DATE '2026-03-31',
+                        'USA',
+                        TIMESTAMPTZ '2026-04-20 08:00:00+00',
+                        TIMESTAMPTZ '2026-04-20 08:00:00+00',
+                        NULL
+                    ),
+                    (
+                        30,
+                        'bringatrailer',
+                        'already-ingested',
+                        'https://bringatrailer.com/listing/already-ingested/',
+                        'Already Ingested',
+                        DATE '2026-03-29',
+                        'USA',
+                        TIMESTAMPTZ '2026-04-19 08:00:00+00',
+                        TIMESTAMPTZ '2026-04-19 08:00:00+00',
+                        TIMESTAMPTZ '2026-04-21 08:00:00+00'
+                    ),
+                    (
+                        40,
+                        'carsandbids',
+                        'other-source',
+                        'https://carsandbids.com/auctions/other-source',
+                        'Other Source',
+                        DATE '2026-03-28',
+                        'USA',
+                        TIMESTAMPTZ '2026-04-18 08:00:00+00',
+                        TIMESTAMPTZ '2026-04-18 08:00:00+00',
+                        NULL
+                    )
+                """
+            )
 
 
 def _docker_daemon_available():
