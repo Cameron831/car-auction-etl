@@ -202,7 +202,7 @@ def _strip_listing_prefix(title):
     return match.group(1).strip()
 
 def parse_year(title):
-    match = re.match(r"(\d{4})", title)
+    match = re.search(r"\b(\d{4})\b", title)
     if not match:
         raise ValueError("Could not parse year from listing title")
     return int(match.group(1))
