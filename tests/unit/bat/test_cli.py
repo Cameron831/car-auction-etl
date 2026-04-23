@@ -290,7 +290,7 @@ def test_transform_discovered_listings_returns_zeroed_summary_for_empty_batch(mo
     assert summary == cli.BatchTransformSummary()
 
 
-def test_ingest_discovered_listings_marks_stage_1_reject_without_scrape(mocker):
+def test_ingest_discovered_listings_marks_stage_1_reject_without_scrape(mocker, caplog):
     mocker.patch(
         "app.sources.bat.cli.load_pending_discovered_listings",
         return_value=[
@@ -309,10 +309,15 @@ def test_ingest_discovered_listings_marks_stage_1_reject_without_scrape(mocker):
     mark_ineligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_ineligible")
     fetch_listing_html = mocker.patch("app.sources.bat.cli.fetch_listing_html")
 
+    caplog.set_level(logging.INFO)
     summary = cli.ingest_discovered_listings()
 
     mark_ineligible.assert_called_once_with("stage-1-reject", "year before 1946")
     fetch_listing_html.assert_not_called()
+    assert (
+        "BAT ingest-discovered listing rejected for listing_id=stage-1-reject "
+        "stage=stage_1 reason=year before 1946"
+    ) in caplog.text
     assert summary == cli.BatchIngestSummary(
         selected=1,
         stage_1_rejected=1,
@@ -353,7 +358,7 @@ def test_ingest_discovered_listings_records_scrape_failure_without_marking_row(m
     )
 
 
-def test_ingest_discovered_listings_marks_stage_2_reject_without_saving_html(mocker):
+def test_ingest_discovered_listings_marks_stage_2_reject_without_saving_html(mocker, caplog):
     mocker.patch(
         "app.sources.bat.cli.load_pending_discovered_listings",
         return_value=[
@@ -380,10 +385,15 @@ def test_ingest_discovered_listings_marks_stage_2_reject_without_saving_html(moc
     mark_ineligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_ineligible")
     save_listing_html = mocker.patch("app.sources.bat.cli.save_listing_html")
 
+    caplog.set_level(logging.INFO)
     summary = cli.ingest_discovered_listings()
 
     mark_ineligible.assert_called_once_with("stage-2-reject", "excluded category: projects")
     save_listing_html.assert_not_called()
+    assert (
+        "BAT ingest-discovered listing rejected for listing_id=stage-2-reject "
+        "stage=stage_2 reason=excluded category: projects"
+    ) in caplog.text
     assert summary == cli.BatchIngestSummary(
         selected=1,
         scrape_attempted=1,

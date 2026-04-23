@@ -113,6 +113,11 @@ def ingest_discovered_listings(batch_size=None):
             row.get("source_location"),
         )
         if not eligible:
+            logger.info(
+                "BAT ingest-discovered listing rejected for listing_id=%s stage=stage_1 reason=%s",
+                listing_id,
+                reason,
+            )
             mark_discovered_listing_handled_ineligible(listing_id, reason)
             summary.stage_1_rejected += 1
             continue
@@ -132,6 +137,11 @@ def ingest_discovered_listings(batch_size=None):
 
         eligible, reason = evaluate_listing_eligibility(soup, listing_title)
         if not eligible:
+            logger.info(
+                "BAT ingest-discovered listing rejected for listing_id=%s stage=stage_2 reason=%s",
+                listing_id,
+                reason,
+            )
             mark_discovered_listing_handled_ineligible(listing_id, reason)
             summary.stage_2_rejected += 1
             continue
