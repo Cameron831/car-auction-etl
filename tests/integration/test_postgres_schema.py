@@ -48,14 +48,19 @@ def test_schema_sql_applies_in_isolated_postgres_container():
         column_rows = _psql(
             container_name,
             """
-            SELECT column_name || ':' || data_type
+            SELECT column_name || ':' || data_type || ':' || is_nullable
             FROM information_schema.columns
             WHERE table_name = 'listings'
-              AND column_name IN ('auction_end_date', 'listing_details_raw')
+              AND column_name IN ('auction_end_date', 'listing_details_raw', 'make', 'model')
             ORDER BY column_name;
             """,
         )
-        assert column_rows == ["auction_end_date:date", "listing_details_raw:jsonb"]
+        assert column_rows == [
+            "auction_end_date:date:NO",
+            "listing_details_raw:jsonb:YES",
+            "make:text:NO",
+            "model:text:YES",
+        ]
 
         unique_columns = _psql(
             container_name,

@@ -154,9 +154,8 @@ def evaluate_listing_eligibility(soup, listing_title):
     if year < BAT_MIN_YEAR:
         return False, "year before 1946"
 
-    try:
-        categories = extract_group_value(soup, "Category")
-    except ValueError:
+    categories = extract_group_value(soup, "Category")
+    if categories is None:
         return True, None
 
     for category in categories:
@@ -209,12 +208,18 @@ def parse_year(title):
     return int(match.group(1))
 
 def parse_model(soup):
-    return extract_group_value(soup, "Model")[0]
+    values = extract_group_value(soup, "Model")
+    if values is None:
+        return None
+    return values[0]
 
 def parse_make(soup):
-    return extract_group_value(soup, "Make")[0]
+    values = extract_group_value(soup, "Make")
+    if values is None:
+        raise ValueError("Could not find 'Make' group")
+    return values[0]
 
-def extract_group_value(soup: BeautifulSoup, label: str) -> list[str]:
+def extract_group_value(soup: BeautifulSoup, label: str) -> list[str] | None:
     values = []
 
     for label_tag in soup.select("strong.group-title-label"):
@@ -233,12 +238,12 @@ def extract_group_value(soup: BeautifulSoup, label: str) -> list[str]:
 
         value = full_text.removeprefix(label_text).strip()
         if not value:
-            raise ValueError(f"Found '{label}' group but it had no value")
+            continue
 
         values.append(value)
 
     if not values:
-        raise ValueError(f"Could not find '{label}' group")
+        return None
 
     return values
 
