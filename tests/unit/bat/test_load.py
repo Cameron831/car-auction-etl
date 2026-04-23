@@ -27,6 +27,15 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
     ]
 
 
+def test_build_listing_params_allows_null_model():
+    transformed_listing = _transformed_listing()
+    transformed_listing["model"] = None
+
+    params = load.build_listing_params(transformed_listing)
+
+    assert params["model"] is None
+
+
 def test_load_listing_executes_upsert_with_expected_conflict_target(mocker, caplog):
     calls = {"executions": []}
 

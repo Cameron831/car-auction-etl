@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS listings (
     source_listing_id TEXT NOT NULL,
     url TEXT NOT NULL,
     make TEXT NOT NULL,
-    model TEXT NOT NULL,
+    model TEXT,
     year INTEGER NOT NULL,
     mileage INTEGER,
     vin TEXT,

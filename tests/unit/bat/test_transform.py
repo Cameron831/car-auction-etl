@@ -239,6 +239,50 @@ def test_transform_listing_html_logs_success_without_raw_html(mocker, caplog):
     assert "Transformed BAT listing HTML for listing_id=test-id" in caplog.text
     assert "SENSITIVE_RAW_HTML" not in caplog.text
 
+def test_transform_listing_html_allows_missing_model(mocker):
+    html_content = """
+    <html>
+        <head>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "One Owner 2004 BMW M3",
+                "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "USD",
+                    "price": 19750
+                }
+            }
+            </script>
+        </head>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Make</strong>
+                BMW
+            </button>
+            <div class="item">
+                <strong>Listing Details</strong>
+                <ul>
+                    <li>Chassis: WBSBL93414PN57203</li>
+                    <li>50,250 Miles</li>
+                    <li>6-Speed Manual Transmission</li>
+                </ul>
+            </div>
+            <div class="listing-available-info">
+                <span>Sold for <strong>USD $19,750</strong></span>
+            </div>
+            <span class="date date-localize" data-timestamp="1774898451"></span>
+        </body>
+    </html>
+    """
+    mocker.patch.object(transform, "load_listing_html", return_value=html_content)
+
+    transformed = transform.transform_listing_html("missing-model")
+
+    assert transformed["make"] == "BMW"
+    assert transformed["model"] is None
+
 def test_get_product_json_ld_returns_product_data(tmp_path):
     # create a test HTML file with a valid JSON-LD script tag
     html_content = """
@@ -465,8 +509,20 @@ def test_parse_model_not_found():
     </html>
     """
     soup = BeautifulSoup(html_content, "html.parser")
-    with pytest.raises(ValueError, match="Could not find 'Model' group"):
-        transform.parse_model(soup)
+    assert transform.parse_model(soup) is None
+
+def test_parse_model_empty_group_returns_none():
+    html_content = """
+    <html>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Model</strong>
+            </button>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    assert transform.parse_model(soup) is None
 
 def test_parse_make_valid():
     html_content = """
@@ -532,6 +588,20 @@ def test_parse_make_not_found():
     with pytest.raises(ValueError, match="Could not find 'Make' group"):
         transform.parse_make(soup)
 
+def test_parse_make_empty_group_raises():
+    html_content = """
+    <html>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Make</strong>
+            </button>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Could not find 'Make' group"):
+        transform.parse_make(soup)
+
 
 def test_extract_group_value_reads_all_category_values_from_group_links():
     soup = BeautifulSoup(
@@ -556,6 +626,27 @@ def test_extract_group_value_reads_all_category_values_from_group_links():
         "Truck & 4x4",
         "Convertibles",
     ]
+
+def test_extract_group_value_returns_none_for_missing_group():
+    soup = BeautifulSoup("<html><body></body></html>", "html.parser")
+
+    assert transform.extract_group_value(soup, "Category") is None
+
+def test_extract_group_value_returns_none_for_empty_group_value():
+    soup = BeautifulSoup(
+        """
+        <html>
+            <body>
+                <button class="group-title">
+                    <strong class="group-title-label">Category</strong>
+                </button>
+            </body>
+        </html>
+        """,
+        "html.parser",
+    )
+
+    assert transform.extract_group_value(soup, "Category") is None
 
 
 def test_evaluate_listing_eligibility_rejects_missing_or_unparseable_year():
@@ -686,6 +777,22 @@ def test_evaluate_listing_eligibility_rejects_replica_when_title_year_missing():
 
 def test_evaluate_listing_eligibility_does_not_reject_missing_category():
     soup = BeautifulSoup("<html><body></body></html>", "html.parser")
+
+    assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (True, None)
+
+def test_evaluate_listing_eligibility_does_not_reject_empty_category():
+    soup = BeautifulSoup(
+        """
+        <html>
+            <body>
+                <a class="group-link" href="/category/">
+                    <strong class="group-title-label">Category</strong>
+                </a>
+            </body>
+        </html>
+        """,
+        "html.parser",
+    )
 
     assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (True, None)
 
