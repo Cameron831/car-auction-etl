@@ -218,9 +218,8 @@ def test_load_pending_raw_listing_html_requires_database_url(mocker):
 def test_transform_listing_html_logs_success_without_raw_html(mocker, caplog):
     mocker.patch.object(transform, "load_listing_html", return_value="<html>SENSITIVE_RAW_HTML</html>")
     mocker.patch.object(transform, "get_product_json_ld", return_value={"name": "One Owner 2004 BMW M3"})
-    mocker.patch.object(transform, "extract_listing_title", return_value="2004 BMW M3")
     mocker.patch.object(transform, "get_listing_details", return_value=["Chassis: WBSBL93414PN57203"])
-    mocker.patch.object(transform, "parse_year", return_value=2004)
+    mocker.patch.object(transform, "parse_listing_id_year", return_value=2004)
     mocker.patch.object(transform, "parse_make", return_value="BMW")
     mocker.patch.object(transform, "parse_model", return_value="M3")
     mocker.patch.object(transform, "find_detail_value", side_effect=["50,250 Miles", "Chassis: WBSBL93414PN57203", "6-Speed Manual Transmission"])
@@ -232,11 +231,11 @@ def test_transform_listing_html_logs_success_without_raw_html(mocker, caplog):
     mocker.patch.object(transform, "normalize_transmission", return_value="manual")
 
     caplog.set_level(logging.INFO)
-    transformed = transform.transform_listing_html("test-id")
+    transformed = transform.transform_listing_html("2004-test-id")
 
-    assert transformed["listing_id"] == "test-id"
-    assert "Transforming BAT listing HTML for listing_id=test-id" in caplog.text
-    assert "Transformed BAT listing HTML for listing_id=test-id" in caplog.text
+    assert transformed["listing_id"] == "2004-test-id"
+    assert "Transforming BAT listing HTML for listing_id=2004-test-id" in caplog.text
+    assert "Transformed BAT listing HTML for listing_id=2004-test-id" in caplog.text
     assert "SENSITIVE_RAW_HTML" not in caplog.text
 
 def test_transform_listing_html_allows_missing_model(mocker):
@@ -247,7 +246,7 @@ def test_transform_listing_html_allows_missing_model(mocker):
             {
                 "@context": "http://schema.org",
                 "@type": "Product",
-                "name": "One Owner 2004 BMW M3",
+                "name": "One Owner BMW M3",
                 "offers": {
                     "@type": "Offer",
                     "priceCurrency": "USD",
@@ -278,10 +277,11 @@ def test_transform_listing_html_allows_missing_model(mocker):
     """
     mocker.patch.object(transform, "load_listing_html", return_value=html_content)
 
-    transformed = transform.transform_listing_html("missing-model")
+    transformed = transform.transform_listing_html("2004-missing-model")
 
     assert transformed["make"] == "BMW"
     assert transformed["model"] is None
+    assert transformed["year"] == 2004
 
 def test_get_product_json_ld_returns_product_data(tmp_path):
     # create a test HTML file with a valid JSON-LD script tag
@@ -437,16 +437,25 @@ def test_extract_listing_title_not_found():
     }
     with pytest.raises(ValueError, match="Could not parse listing title"):
         transform.extract_listing_title(soup, product_data)
-    
-def test_parse_year_valid_title():
-    title = "2026 Make Model Title"
-    year = transform.parse_year(title)
-    assert year == 2026
 
-def test_parse_year_invalid_title():
-    title = "Make Model Title"
-    with pytest.raises(ValueError, match="Could not parse year from listing title"):
-        transform.parse_year(title)
+def test_parse_listing_id_year_reads_leading_year():
+    assert transform.parse_listing_id_year("2026-make-model") == 2026
+    assert transform.parse_listing_id_year("2026") == 2026
+
+
+@pytest.mark.parametrize(
+    "listing_id",
+    [
+        "make-model-2026",
+        "26-make-model",
+        "20260-make-model",
+        "",
+        None,
+    ],
+)
+def test_parse_listing_id_year_rejects_missing_leading_year(listing_id):
+    with pytest.raises(ValueError, match="Could not parse year from listing ID"):
+        transform.parse_listing_id_year(listing_id)
 
 def test_parse_model_valid():
     html_content = """
@@ -652,16 +661,16 @@ def test_extract_group_value_returns_none_for_empty_group_value():
 def test_evaluate_listing_eligibility_rejects_missing_or_unparseable_year():
     soup = BeautifulSoup("<html></html>", "html.parser")
 
-    assert transform.evaluate_listing_eligibility(soup, "Factory Five Cobra Replica") == (
+    assert transform.evaluate_listing_eligibility(soup, "factory-five-cobra-replica") == (
         False,
-        "title year missing",
+        "listing ID year missing",
     )
 
 
-def test_evaluate_listing_eligibility_rejects_pre_1946_title():
+def test_evaluate_listing_eligibility_rejects_pre_1946_listing_id():
     soup = BeautifulSoup("<html></html>", "html.parser")
 
-    assert transform.evaluate_listing_eligibility(soup, "1941 Ford Super Deluxe Coupe") == (
+    assert transform.evaluate_listing_eligibility(soup, "1941-ford-super-deluxe-coupe") == (
         False,
         "year before 1946",
     )
@@ -682,7 +691,7 @@ def test_evaluate_listing_eligibility_rejects_excluded_category():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (
+    assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (
         False,
         "excluded category: Parts",
     )
@@ -706,7 +715,7 @@ def test_evaluate_listing_eligibility_rejects_when_any_category_is_excluded():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (
+    assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (
         False,
         "excluded category: Parts",
     )
@@ -727,7 +736,7 @@ def test_evaluate_listing_eligibility_rejects_projects_via_category():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911 Coupe") == (
+    assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911-coupe") == (
         False,
         "excluded category: Projects",
     )
@@ -748,13 +757,13 @@ def test_evaluate_listing_eligibility_rejects_race_cars_via_category():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "1997 Porsche 911 GT2 Evo") == (
+    assert transform.evaluate_listing_eligibility(soup, "1997-porsche-911-gt2-evo") == (
         False,
         "excluded category: Race Cars",
     )
 
 
-def test_evaluate_listing_eligibility_rejects_replica_when_title_year_missing():
+def test_evaluate_listing_eligibility_rejects_replica_when_listing_id_year_missing():
     soup = BeautifulSoup(
         """
         <html>
@@ -769,16 +778,25 @@ def test_evaluate_listing_eligibility_rejects_replica_when_title_year_missing():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "Shelby Cobra Replica") == (
+    assert transform.evaluate_listing_eligibility(soup, "shelby-cobra-replica") == (
         False,
-        "title year missing",
+        "listing ID year missing",
     )
 
 
 def test_evaluate_listing_eligibility_does_not_reject_missing_category():
     soup = BeautifulSoup("<html><body></body></html>", "html.parser")
 
-    assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (True, None)
+    assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (True, None)
+
+
+def test_evaluate_listing_eligibility_uses_listing_id_when_title_has_no_year():
+    soup = BeautifulSoup("<html><body></body></html>", "html.parser")
+
+    assert transform.evaluate_listing_eligibility(soup, "2010-am-general-hmmwv-military-5") == (
+        True,
+        None,
+    )
 
 def test_evaluate_listing_eligibility_does_not_reject_empty_category():
     soup = BeautifulSoup(
@@ -794,7 +812,7 @@ def test_evaluate_listing_eligibility_does_not_reject_empty_category():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (True, None)
+    assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (True, None)
 
 
 def test_evaluate_listing_eligibility_does_not_reject_non_excluded_category():
@@ -812,7 +830,7 @@ def test_evaluate_listing_eligibility_does_not_reject_non_excluded_category():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "1967 Porsche 911S Coupe") == (True, None)
+    assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (True, None)
 
 def test_evaluate_listing_eligibility_allows_multiple_non_excluded_categories():
     soup = BeautifulSoup(
@@ -833,7 +851,7 @@ def test_evaluate_listing_eligibility_allows_multiple_non_excluded_categories():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "1967 Ford F-250") == (True, None)
+    assert transform.evaluate_listing_eligibility(soup, "1967-ford-f-250") == (True, None)
 
 
 def test_evaluate_listing_eligibility_keeps_truck_and_4x4_in_scope():
@@ -851,7 +869,7 @@ def test_evaluate_listing_eligibility_keeps_truck_and_4x4_in_scope():
         "html.parser",
     )
 
-    assert transform.evaluate_listing_eligibility(soup, "1967 Ford F-250 4x4") == (True, None)
+    assert transform.evaluate_listing_eligibility(soup, "1967-ford-f-250-4x4") == (True, None)
     
 def test_get_listing_details_valid():
     html_content = """

@@ -287,11 +287,10 @@ def build_discovered_listing_params(candidate):
     }
 
 
-def evaluate_discovery_eligibility(title, source_location):
-    normalized_title = (title or "").strip()
-    year = _parse_title_year(normalized_title)
+def evaluate_discovery_eligibility(listing_id, source_location):
+    year = _parse_listing_id_year(listing_id)
     if year is None:
-        return False, "title year missing"
+        return False, "listing ID year missing"
     if year < DISCOVERY_MIN_YEAR:
         return False, "year before 1946"
     if source_location != DISCOVERY_ALLOWED_SOURCE_LOCATION:
@@ -316,8 +315,8 @@ def _normalize_scrape_date(value):
     raise TypeError("scrape_date must be a date or ISO date string")
 
 
-def _parse_title_year(title):
-    match = re.match(r"(\d{4})\b", title)
+def _parse_listing_id_year(listing_id):
+    match = re.match(r"^(\d{4})(?:-|$)", listing_id or "")
     if not match:
         return None
     return int(match.group(1))

@@ -17,8 +17,6 @@ from app.sources.bat.ingest import fetch_listing_html, save_listing_html
 from app.sources.bat.load import load_listing
 from app.sources.bat.transform import (
     evaluate_listing_eligibility,
-    extract_listing_title,
-    get_product_json_ld,
     load_pending_raw_listing_html,
     transform_listing_html,
 )
@@ -109,7 +107,7 @@ def ingest_discovered_listings(batch_size=None):
         summary.selected += 1
         listing_id = row["source_listing_id"]
         eligible, reason = evaluate_discovery_eligibility(
-            row.get("title"),
+            listing_id,
             row.get("source_location"),
         )
         if not eligible:
@@ -131,11 +129,7 @@ def ingest_discovered_listings(batch_size=None):
             continue
 
         soup = BeautifulSoup(html, "html.parser")
-        listing_title = row.get("title")
-        if not listing_title:
-            listing_title = extract_listing_title(soup, get_product_json_ld(soup))
-
-        eligible, reason = evaluate_listing_eligibility(soup, listing_title)
+        eligible, reason = evaluate_listing_eligibility(soup, listing_id)
         if not eligible:
             logger.info(
                 "BAT ingest-discovered listing rejected for listing_id=%s stage=stage_2 reason=%s",

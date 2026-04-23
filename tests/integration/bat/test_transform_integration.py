@@ -19,7 +19,7 @@ RAW_LISTING_HTML = """
         {
             "@context": "http://schema.org",
             "@type": "Product",
-            "name": "2004 BMW E46 M3",
+            "name": "BMW E46 M3",
             "offers": {
                 "@type": "Offer",
                 "priceCurrency": "USD",
