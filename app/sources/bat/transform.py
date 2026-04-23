@@ -111,11 +111,10 @@ def transform_listing_html(listing_id):
     html = load_listing_html(listing_id)
     soup = BeautifulSoup(html, "html.parser")
     product_data = get_product_json_ld(soup)
-    listing_title = extract_listing_title(soup, product_data)
     listing_details = get_listing_details(soup)
 
     # transformed entries
-    year = parse_year(listing_title)
+    year = parse_listing_id_year(listing_id)
     make = parse_make(soup)
     model = parse_model(soup)
     mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
@@ -145,11 +144,11 @@ def transform_listing_html(listing_id):
     return transformed_data
 
 
-def evaluate_listing_eligibility(soup, listing_title):
+def evaluate_listing_eligibility(soup, listing_id):
     try:
-        year = parse_year(listing_title)
+        year = parse_listing_id_year(listing_id)
     except ValueError:
-        return False, "title year missing"
+        return False, "listing ID year missing"
 
     if year < BAT_MIN_YEAR:
         return False, "year before 1946"
@@ -201,10 +200,10 @@ def _strip_listing_prefix(title):
         raise ValueError("Could not parse listing title")
     return match.group(1).strip()
 
-def parse_year(title):
-    match = re.search(r"\b(\d{4})\b", title)
+def parse_listing_id_year(listing_id):
+    match = re.match(r"^(\d{4})(?:-|$)", listing_id or "")
     if not match:
-        raise ValueError("Could not parse year from listing title")
+        raise ValueError("Could not parse year from listing ID")
     return int(match.group(1))
 
 def parse_model(soup):

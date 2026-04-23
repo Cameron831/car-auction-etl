@@ -302,7 +302,7 @@ def test_ingest_discovered_listings_marks_stage_1_reject_without_scrape(mocker, 
             }
         ],
     )
-    mocker.patch(
+    evaluate_discovery_eligibility = mocker.patch(
         "app.sources.bat.cli.evaluate_discovery_eligibility",
         return_value=(False, "year before 1946"),
     )
@@ -312,6 +312,7 @@ def test_ingest_discovered_listings_marks_stage_1_reject_without_scrape(mocker, 
     caplog.set_level(logging.INFO)
     summary = cli.ingest_discovered_listings()
 
+    evaluate_discovery_eligibility.assert_called_once_with("stage-1-reject", "US")
     mark_ineligible.assert_called_once_with("stage-1-reject", "year before 1946")
     fetch_listing_html.assert_not_called()
     assert (
@@ -378,7 +379,7 @@ def test_ingest_discovered_listings_marks_stage_2_reject_without_saving_html(moc
         "app.sources.bat.cli.fetch_listing_html",
         return_value="<html><body>listing</body></html>",
     )
-    mocker.patch(
+    evaluate_listing_eligibility = mocker.patch(
         "app.sources.bat.cli.evaluate_listing_eligibility",
         return_value=(False, "excluded category: projects"),
     )
@@ -388,6 +389,9 @@ def test_ingest_discovered_listings_marks_stage_2_reject_without_saving_html(moc
     caplog.set_level(logging.INFO)
     summary = cli.ingest_discovered_listings()
 
+    evaluate_listing_eligibility.assert_called_once()
+    _, listing_id = evaluate_listing_eligibility.call_args.args
+    assert listing_id == "stage-2-reject"
     mark_ineligible.assert_called_once_with("stage-2-reject", "excluded category: projects")
     save_listing_html.assert_not_called()
     assert (
@@ -444,15 +448,15 @@ def test_ingest_discovered_listings_saves_html_and_marks_eligible_for_stage_2_pa
     )
 
 
-def test_ingest_discovered_listings_uses_html_title_fallback_when_discovered_title_missing(mocker):
+def test_ingest_discovered_listings_uses_listing_id_for_stage_2_when_discovered_title_missing(mocker):
     mocker.patch(
         "app.sources.bat.cli.load_pending_discovered_listings",
         return_value=[
             {
-                "source_listing_id": "fallback-title",
+                "source_listing_id": "1967-fallback-title",
                 "title": None,
                 "source_location": "US",
-                "url": "https://bringatrailer.com/listing/fallback-title/",
+                "url": "https://bringatrailer.com/listing/1967-fallback-title/",
             }
         ],
     )
@@ -464,14 +468,6 @@ def test_ingest_discovered_listings_uses_html_title_fallback_when_discovered_tit
         "app.sources.bat.cli.fetch_listing_html",
         return_value="<html><body>listing</body></html>",
     )
-    get_product_json_ld = mocker.patch(
-        "app.sources.bat.cli.get_product_json_ld",
-        return_value={"name": "1967 Porsche 911S Coupe"},
-    )
-    extract_listing_title = mocker.patch(
-        "app.sources.bat.cli.extract_listing_title",
-        return_value="1967 Porsche 911S Coupe",
-    )
     evaluate_listing_eligibility = mocker.patch(
         "app.sources.bat.cli.evaluate_listing_eligibility",
         return_value=(True, None),
@@ -481,11 +477,9 @@ def test_ingest_discovered_listings_uses_html_title_fallback_when_discovered_tit
 
     cli.ingest_discovered_listings()
 
-    get_product_json_ld.assert_called_once()
-    extract_listing_title.assert_called_once()
     evaluate_listing_eligibility.assert_called_once()
-    _, listing_title = evaluate_listing_eligibility.call_args.args
-    assert listing_title == "1967 Porsche 911S Coupe"
+    _, listing_id = evaluate_listing_eligibility.call_args.args
+    assert listing_id == "1967-fallback-title"
 
 
 def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):

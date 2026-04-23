@@ -18,7 +18,7 @@ VALID_RAW_HTML = """
         {
             "@context": "http://schema.org",
             "@type": "Product",
-            "name": "2004 BMW E46 M3",
+            "name": "BMW E46 M3",
             "offers": {
                 "@type": "Offer",
                 "priceCurrency": "USD",
@@ -107,11 +107,11 @@ def test_transform_discovered_processes_successes_retains_failures_and_respects_
         )
 
         assert _raw_processed_states(database_url) == [
-            ("first-success", True),
-            ("second-success", False),
+            ("2004-first-success", True),
+            ("2005-second-success", False),
             ("transform-fail", False),
         ]
-        assert _listing_ids(database_url) == ["first-success"]
+        assert _listing_ids(database_url) == ["2004-first-success"]
 
         second_summary = cli.transform_discovered_listings()
         assert second_summary == cli.BatchTransformSummary(
@@ -122,11 +122,11 @@ def test_transform_discovered_processes_successes_retains_failures_and_respects_
         )
 
         assert _raw_processed_states(database_url) == [
-            ("first-success", True),
-            ("second-success", True),
+            ("2004-first-success", True),
+            ("2005-second-success", True),
             ("transform-fail", False),
         ]
-        assert _listing_ids(database_url) == ["first-success", "second-success"]
+        assert _listing_ids(database_url) == ["2004-first-success", "2005-second-success"]
     finally:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)
 
@@ -148,8 +148,8 @@ def _insert_raw_listing_rows(database_url):
                     (
                         10,
                         'bringatrailer',
-                        'first-success',
-                        'https://bringatrailer.com/listing/first-success/',
+                        '2004-first-success',
+                        'https://bringatrailer.com/listing/2004-first-success/',
                         %s,
                         TIMESTAMPTZ '2026-04-20 08:00:00+00',
                         FALSE
@@ -166,8 +166,8 @@ def _insert_raw_listing_rows(database_url):
                     (
                         30,
                         'bringatrailer',
-                        'second-success',
-                        'https://bringatrailer.com/listing/second-success/',
+                        '2005-second-success',
+                        'https://bringatrailer.com/listing/2005-second-success/',
                         %s,
                         TIMESTAMPTZ '2026-04-20 09:00:00+00',
                         FALSE

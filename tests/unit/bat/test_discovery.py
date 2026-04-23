@@ -67,42 +67,49 @@ def test_normalize_completed_auction_candidate_allows_missing_optional_metadata(
     }
 
 
-def test_evaluate_discovery_eligibility_accepts_in_scope_us_car_title():
-    assert discovery.evaluate_discovery_eligibility("2004 BMW M3 Coupe", "US") == (True, None)
+def test_evaluate_discovery_eligibility_accepts_in_scope_us_car_listing_id():
+    assert discovery.evaluate_discovery_eligibility("2004-bmw-m3-coupe", "US") == (True, None)
 
 
 def test_evaluate_discovery_eligibility_rejects_missing_or_unparseable_year():
-    assert discovery.evaluate_discovery_eligibility("BMW M3 Coupe", "US") == (
+    assert discovery.evaluate_discovery_eligibility("bmw-m3-coupe", "US") == (
         False,
-        "title year missing",
+        "listing ID year missing",
     )
 
 
-def test_evaluate_discovery_eligibility_rejects_pre_1946_title():
-    assert discovery.evaluate_discovery_eligibility("1941 Ford Super Deluxe Coupe", "US") == (
+def test_evaluate_discovery_eligibility_rejects_pre_1946_listing_id():
+    assert discovery.evaluate_discovery_eligibility("1941-ford-super-deluxe-coupe", "US") == (
         False,
         "year before 1946",
     )
 
 
 def test_evaluate_discovery_eligibility_rejects_non_us_listing():
-    assert discovery.evaluate_discovery_eligibility("2004 BMW M3 Coupe", "CA") == (
+    assert discovery.evaluate_discovery_eligibility("2004-bmw-m3-coupe", "CA") == (
         False,
         "listing outside US",
     )
 
 
 @pytest.mark.parametrize(
-    "title",
+    "listing_id",
     [
-        "2004 Harley-Davidson Motorcycle",
-        "1967 Porsche 911 Literature Collection",
-        "1989 Polaris ATV",
-        "1967 Ford F-250 Fire Truck",
+        "2004-harley-davidson-motorcycle",
+        "1967-porsche-911-literature-collection",
+        "1989-polaris-atv",
+        "1967-ford-f-250-fire-truck",
     ],
 )
-def test_evaluate_discovery_eligibility_keeps_valid_year_and_location_titles_in_scope(title):
-    assert discovery.evaluate_discovery_eligibility(title, "US") == (True, None)
+def test_evaluate_discovery_eligibility_keeps_valid_year_and_location_listing_ids_in_scope(listing_id):
+    assert discovery.evaluate_discovery_eligibility(listing_id, "US") == (True, None)
+
+
+def test_evaluate_discovery_eligibility_uses_listing_id_when_title_has_no_year():
+    assert discovery.evaluate_discovery_eligibility("2010-am-general-hmmwv-military-5", "US") == (
+        True,
+        None,
+    )
 
 
 def test_discover_completed_auctions_returns_summary_counts_across_pages(mocker):
