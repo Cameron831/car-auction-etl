@@ -33,6 +33,17 @@ CREATE TABLE IF NOT EXISTS raw_listing_html (
     UNIQUE (source_site, source_listing_id)
 );
 
+CREATE TABLE IF NOT EXISTS raw_listing_json (
+    id BIGSERIAL PRIMARY KEY,
+    source_site TEXT NOT NULL,
+    source_listing_id TEXT NOT NULL,
+    url TEXT NOT NULL,
+    raw_json JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    processed BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE (source_site, source_listing_id)
+);
+
 CREATE TABLE IF NOT EXISTS discovered_listings (
     id BIGSERIAL PRIMARY KEY,
     source_site TEXT NOT NULL,
