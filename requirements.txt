@@ -5,6 +5,7 @@ colorama==0.4.6
 idna==3.11
 iniconfig==2.3.0
 packaging==26.0
+playwright==1.58.0
 pluggy==1.6.0
 psycopg[binary]==3.2.13
 Pygments==2.20.0
