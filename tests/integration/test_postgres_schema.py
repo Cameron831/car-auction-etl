@@ -141,6 +141,71 @@ def test_schema_sql_applies_in_isolated_postgres_container():
         )
         assert raw_defaults == ["false|t"]
 
+        raw_json_column_rows = _psql(
+            container_name,
+            """
+            SELECT column_name || ':' || data_type || ':' || is_nullable
+            FROM information_schema.columns
+            WHERE table_name = 'raw_listing_json'
+              AND column_name IN (
+                  'id',
+                  'source_site',
+                  'source_listing_id',
+                  'url',
+                  'raw_json',
+                  'created_at',
+                  'processed'
+              )
+            ORDER BY column_name;
+            """,
+        )
+        assert raw_json_column_rows == [
+            "created_at:timestamp with time zone:NO",
+            "id:bigint:NO",
+            "processed:boolean:NO",
+            "raw_json:jsonb:NO",
+            "source_listing_id:text:NO",
+            "source_site:text:NO",
+            "url:text:NO",
+        ]
+
+        raw_json_unique_columns = _psql(
+            container_name,
+            """
+            SELECT string_agg(a.attname, ',' ORDER BY array_position(c.conkey, a.attnum))
+            FROM pg_constraint c
+            JOIN pg_class t ON t.oid = c.conrelid
+            JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(c.conkey)
+            WHERE t.relname = 'raw_listing_json'
+              AND c.contype = 'u'
+            GROUP BY c.oid;
+            """,
+        )
+        assert "source_site,source_listing_id" in raw_json_unique_columns
+
+        raw_json_defaults = _psql(
+            container_name,
+            """
+            WITH inserted AS (
+                INSERT INTO raw_listing_json (
+                    source_site,
+                    source_listing_id,
+                    url,
+                    raw_json
+                ) VALUES (
+                    'bringatrailer',
+                    'schema-json-test',
+                    'https://example.test/schema-json-test',
+                    '{"listing":"schema-json-test","sold":true}'::jsonb
+                )
+                RETURNING raw_json, processed, created_at
+            )
+            SELECT jsonb_typeof(raw_json), processed::text, created_at IS NOT NULL
+            FROM inserted;
+            """,
+        )
+        assert raw_json_defaults == ["object|false|t"]
+
         discovered_column_rows = _psql(
             container_name,
             """
