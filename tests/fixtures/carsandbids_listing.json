@@ -1,0 +1,737 @@
+{
+    "id": "3pnjnnx6",
+    "submission_id": "9Wx1Mk13",
+    "seller": {
+        "id": "rjokgRv0",
+        "photo": null,
+        "username": "ymalm",
+        "is_followed": false,
+        "is_certified_seller": false
+    },
+    "stats": {
+        "bids": 71,
+        "comments": 129,
+        "questions": 0,
+        "watchers": 1374,
+        "auction_end": "2026-04-20T18:39:45.989+00:00",
+        "current_bid": {
+            "bidder": {
+                "photo": null,
+                "username": "jomai11"
+            },
+            "amount": 78000
+        },
+        "sale_amount": 78000,
+        "buyer": {
+            "id": "9AQXRyJo",
+            "photo": null,
+            "username": "jomai11"
+        }
+    },
+    "watching": false,
+    "make_saved_search": null,
+    "model_saved_search": null,
+    "no_reserve": false,
+    "canceled_message": null,
+    "listing": {
+        "title": "2013 Porsche 911 Carrera Coupe",
+        "sub_title": "~56,700 Miles, 7-Speed Manual, Sport Chrono Package, Numerous Modifications",
+        "model": "991 911",
+        "make": "Porsche",
+        "year": 2013,
+        "location": "Fullerton, CA 92831",
+        "vin": "WP0AA2A95DS107582",
+        "mileage": 56700,
+        "mileage_text": null,
+        "body_style": 1,
+        "engine": "3.4L Flat-6",
+        "drive_train": 2,
+        "transmission": 2,
+        "transmission_details": "7-Speed",
+        "exterior_color": "Black",
+        "interior_color": "Black",
+        "title_status": "Clean (CA)",
+        "seller_type": 1,
+        "seller_type_details": null,
+        "highlighted_points": [
+            "Accident-free Carfax history report",
+            "Heated and ventilated front seats",
+            "Bose sound system"
+        ],
+        "history_report_pdf": null,
+        "history_report": {
+            "url": "https://www.carfax.com/vehiclehistory/ar20/-d7HYj36wr0lIP1dUVanDsx8VxPjsow4McV5axHiBXgNK6K88JBFLFjWCVzlpFEZnX6W02kyz9jS7a4BZCLJTX3xWzafO-65InlYfkn-",
+            "expiry": "2026-08-21T22:03:48.000+00:00",
+            "vendor": "carfax"
+        },
+        "sections": {
+            "doug": "",
+            "videos": [
+                "r40g82PV",
+                "KmZNGgRd"
+            ],
+            "equipment": "A build sheet is provided in the photo gallery, and a partial list of notable equipment reported by the seller includes:\n- Premium Package (14-way power-adjustable and heated front seats, auto-dimming mirrors, Porsche Dynamic Light System)\n- Sport Chrono Package (dynamic engine mounts, Sport Plus driving profile, stopwatch on dashboard)\n- Power Steering Plus\n- Power sunroof\n- Ventilated front seats\n- Bose sound system\n- Front and rear ParkAssist",
+            "highlights": "THIS… is a 2013 Porsche 911 Carrera Coupe, finished in black with a black interior.\n- This 911 features the desirable 7-speed manual transmission, and the odometer currently displays approximately 56,700 miles. \n- The attached `Carfax` vehicle history report shows no accidents or mileage discrepancies in this Porsche’s past. It also shows that this Carrera has been registered in California since new.\n- According to the build sheet provided in the gallery, notable factory equipment includes the Premium and Sport Chrono packages, a power sunroof, ventilated front seats, and a Bose sound system. \n- A full list of notable modifications reported by the seller is detailed below. Highlights include a Porsche sport exhaust system, an IPD plenum, a Sport Design ducktail spoiler, and a ZZ2 Apple CarPlay module.\n- Porsche introduced the 991-generation 911 for the 2012 model year. The model arrived as an evolution of its predecessor, the 997, and it received more powerful engines across the board and a more luxurious interior. It was longer, lower, and wider — and it relied extensively on aluminum to avoid putting on weight. Production of the 991 ended in 2019.\n- Power comes from a 3.4-liter flat-6, rated at 350 horsepower and 287 lb-ft of torque. Output is sent to the rear wheels via a 7-speed manual transmission.",
+            "other_items": "- 2 keys\n- Owner's manual\n- Some service records\n- Factory rear spoiler, center console trim, side markers, and pedals",
+            "seller_notes": "- Due to the IPD plenum installed on this 911, it may not pass emissions testing in some states, and a valid California smog inspection report from March 2026 is pictured in the gallery. As always, it’s the **buyer’s responsibility** to perform all due diligence regarding registering this Porsche in their respective state **prior to placing a bid.**\n- The seller states that paint protection film has been applied to the front end and rear fenders, a ceramic coating has been applied to the exterior, and the windows have been tinted.",
+            "modifications": "Notable modifications reported by the seller include: \n\n**Powertrain:**\n- Porsche sport exhaust with interior button\n- IPD plenum\n- Porsche short shift kit\n\n**Exterior:**\n- 20-inch wheels\n- Suncoast Porsche Parts Sport Design ducktail spoiler\n- Porsche front lip spoiler\n- Porsche clear side markers\n- Custom exterior stripes\n- Gold rear badges\n\n**Interior:**\n- ZZ2 Apple CarPlay module\n- Rennline sport pedals\n- Amaranth Red-finished console and dashboard trim\n- Porsche seat belts in red and black\n- Pre-wired for Escort radar detector",
+            "ownership_history": "The seller reports that they purchased this 911 in September 2023 and have added approximately 7,900 miles since.",
+            "recent_service_history": "Service records detail some of the maintenance performed on this 911. Recent reported work includes: \n- January 2026 (56,401 miles): Engine oil and filter changed\n- February 2025 (53,743 miles): Engine oil and filter changed, cabin filters, spark plugs, battery, and Micheline Pilot Sport 4S tires\n- January 2024 (48,923 miles): Brake lines replaced, brake fluid flushed\n- November 2023: Engine oil and filter changed\n- September 2023: Front brake pads and rotors replaced\n- July 2023 (48,474 miles): Clutch and flywheel replaced\n- June 2022 (46,535 miles): Engine oil and filter changed\n- July 2021 (42,737 miles): Engine oil and filter changed"
+        },
+        "featured": false,
+        "accepts_usdc": false,
+        "safepay_eligible": true,
+        "is_not_car": false,
+        "id": "r4pkobLL",
+        "inspection_report_url": null,
+        "photos": {
+            "base_url": "media.carsandbids.com",
+            "docs": [
+                {
+                    "id": "rkJBGZJN",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-11YvOVajpq.jpeg?t=177528786498",
+                    "width": 1702,
+                    "height": 1482
+                },
+                {
+                    "id": "KDV0glNE",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-UDTuxOX.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "rJmEVbLX",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-1J3xUWG.jpeg?t=177554121777",
+                    "width": 3120,
+                    "height": 4160
+                },
+                {
+                    "id": "9n2VZ4kl",
+                    "link": "bdcfbf95b79719e774b0de2550f317b3ce47ddd5/photos/9Wx1Mk13-uM4ShmHnlR.jpg?t=177488786855",
+                    "width": 2200,
+                    "height": 1700
+                },
+                {
+                    "id": "rJynnGaX",
+                    "link": "bdcfbf95b79719e774b0de2550f317b3ce47ddd5/photos/9Wx1Mk13-OgDVQqlb2V.jpg?t=177488786855",
+                    "width": 2200,
+                    "height": 1700
+                },
+                {
+                    "id": "9edkLZQ6",
+                    "link": "bdcfbf95b79719e774b0de2550f317b3ce47ddd5/photos/9Wx1Mk13-GdAOvNnQxd.jpg?t=177488786922",
+                    "width": 2200,
+                    "height": 1700
+                },
+                {
+                    "id": "3OP8ZwGk",
+                    "link": "bdcfbf95b79719e774b0de2550f317b3ce47ddd5/photos/9Wx1Mk13-z9KFhu_D79.jpg?t=177488786615",
+                    "width": 2200,
+                    "height": 1700
+                },
+                {
+                    "id": "3yyoO7ny",
+                    "link": "bdcfbf95b79719e774b0de2550f317b3ce47ddd5/photos/9Wx1Mk13-NGmYH9WsrV.jpg?t=177488786719",
+                    "width": 2200,
+                    "height": 1700
+                },
+                {
+                    "id": "3vLaGnBm",
+                    "link": "bdcfbf95b79719e774b0de2550f317b3ce47ddd5/photos/9Wx1Mk13-_jFXn-08cN.jpg?t=177488786615",
+                    "width": 2200,
+                    "height": 1700
+                },
+                {
+                    "id": "9AMvM2Qo",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-4KfScT0/edit/0v5hN.jpg?t=177528764946",
+                    "width": 3024,
+                    "height": 4032
+                },
+                {
+                    "id": "rxeWyG40",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-HzMBQvKMZv/edit/ZmDpx.jpg?t=177528758742",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "9lxM5xnE",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-pHsPieq_xS/edit/-s04X.jpg?t=177528759947",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "3pmqGW5e",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-Yj_9vd2QPD/edit/SneNx.jpg?t=177528761175",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "3ozwQnDw",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-htIDdsXjNs/edit/nAV2E.jpg?t=177528762002",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "98lmQvBv",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-8h3v_C8Peq/edit/s7v1y.jpg?t=177528752400",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "Kmv11ZMm",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-QqqhR-y5by/edit/KIFJ5.jpg?t=177528753708",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "r4kDYpQV",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-DtdIJ_HtAX/edit/fVd8o.jpg?t=177528750078",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "37Na4nG7",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-BYQVQYSR6X/edit/I7qlI.jpg?t=177528748518",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "30pYozVg",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-LjZJ-TVILR/edit/WslVS.jpg?t=177528746662",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "9XNO2YBo",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-1evHJDjOfp/edit/xKv3j.jpg?t=177528745531",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "KP4JEqR7",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-45i9g90g-x/edit/v1nD9.jpg?t=177528742760",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "3z8Jo0zA",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-tzlyWEC3yq/edit/aMDkN.jpg?t=177528744114",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "3LjLJdEy",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-cVo-ooqWsg/edit/lMyg3.jpg?t=177528740701",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "3oEJv4av",
+                    "link": "59339d5e07287c702e69307de910cceaa69c1d04/photos/9Wx1Mk13-la6vtbMSgc/edit/7QHRQ.jpg?t=177552310575",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "KVGkd8nY",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-BbuOHVPhxL/edit/FGyyf.jpg?t=177528738973",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "rJnMWZoX",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-V0jlz9xdLK/edit/86czy.jpg?t=177528734223",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "9A5pQNNw",
+                    "link": "59339d5e07287c702e69307de910cceaa69c1d04/photos/9Wx1Mk13-TEszVbwc5F/edit/CnC3I.jpg?t=177552310575",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "35EPJJeE",
+                    "link": "59339d5e07287c702e69307de910cceaa69c1d04/photos/9Wx1Mk13-ggnb5jhKu_/edit/4A_7z.jpg?t=177552310575",
+                    "width": 1700,
+                    "height": 2200
+                },
+                {
+                    "id": "3yBEDl7y",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13--oxW4FatpQ/edit/7y_Dd.jpg?t=177528732799",
+                    "width": 1700,
+                    "height": 2200
+                }
+            ],
+            "other": [
+                {
+                    "id": "rbp6EekD",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-WO70v8Y.jpeg?t=177522983259",
+                    "width": 3120,
+                    "height": 4160
+                },
+                {
+                    "id": "rNNjD0JG",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-9Ltx8JP.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "3veypENb",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/other/9Wx1Mk13-Wrlpwyx.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "KVDYE1xY",
+                    "link": "bdcfbf95b79719e774b0de2550f317b3ce47ddd5/photos/9Wx1Mk13-IEneZJC7eN.jpg?t=177488787149",
+                    "width": 2200,
+                    "height": 1700
+                },
+                {
+                    "id": "KZnXE2QO",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-Je2lJsO.jpeg?t=177654816577",
+                    "width": 3120,
+                    "height": 4160
+                }
+            ],
+            "exterior": [
+                {
+                    "id": "rjpbLJXo",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-KSdpZhr/edit/bUwBm.jpg?t=177528798600",
+                    "width": 3817,
+                    "height": 2545
+                },
+                {
+                    "id": "KdopRvOQ",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/exterior/9Wx1Mk13-dZaXDza/edit/NNwl1.jpg?t=177528800954",
+                    "width": 3329,
+                    "height": 2219
+                },
+                {
+                    "id": "KV6a8WYl",
+                    "link": "59339d5e07287c702e69307de910cceaa69c1d04/photos/9Wx1Mk13-AlLNMYB/edit/xNg2L.jpg?t=177552310575",
+                    "width": 3737,
+                    "height": 2491
+                },
+                {
+                    "id": "rGO1lW5O",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-_m1O7-X/edit/dUpeI.jpg?t=177528804737",
+                    "width": 3845,
+                    "height": 2563
+                },
+                {
+                    "id": "rNve47oE",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-7Ls1RN7/edit/vqg19.jpg?t=177528806809",
+                    "width": 3552,
+                    "height": 2368
+                },
+                {
+                    "id": "3oYbp8eo",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-Q1D4nn5.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2767
+                },
+                {
+                    "id": "3vRdmYO3",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/exterior/9Wx1Mk13-rcXMYEg.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2770
+                },
+                {
+                    "id": "rN0j50DP",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-i93Tr7p.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2757
+                },
+                {
+                    "id": "98g661Dd",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-FrweRm1.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2747
+                },
+                {
+                    "id": "36WOdRmA",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-6rM2w1c/edit/BUHzV.jpg?t=177528802611",
+                    "width": 4027,
+                    "height": 2685
+                },
+                {
+                    "id": "9AAwPVdz",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-N_7i3wQ.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2736
+                },
+                {
+                    "id": "KdYQX4JL",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-X39qDc2.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2770
+                },
+                {
+                    "id": "KPDYVvAN",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-AyQnYMp.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2714
+                },
+                {
+                    "id": "rJnYmbDN",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-qYY47Dv.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "rxgBwQD6",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-WE7q-Pw.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2759
+                },
+                {
+                    "id": "9eejkY2d",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/exterior/9Wx1Mk13-djLFTfM.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "K1LXxWb2",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/exterior/9Wx1Mk13-3kZsg22.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2816
+                },
+                {
+                    "id": "rEPEWEza",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/exterior/9Wx1Mk13-6O4bHDl.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "r4qA586g",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/exterior/9Wx1Mk13-IcfeqPg.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2773
+                }
+            ],
+            "interior": [
+                {
+                    "id": "KDq844gM",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/interior/9Wx1Mk13-SV15Jdv/edit/_WUNs.jpg?t=177528817510",
+                    "width": 2802,
+                    "height": 1868
+                },
+                {
+                    "id": "9QaEYyjx",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/interior/9Wx1Mk13-vmlEVIR/edit/X5M-C.jpg?t=177528821930",
+                    "width": 2534,
+                    "height": 1689
+                },
+                {
+                    "id": "3gOEq88z",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/interior/9Wx1Mk13-JPie_vH/edit/gLt-K.jpg?t=177528833610",
+                    "width": 1756,
+                    "height": 1170
+                },
+                {
+                    "id": "9WDg1ObV",
+                    "link": "8e6341e27a680ffab7d98e42bef83b0dd1b0fb94/photos/9Wx1Mk13-ZaXmPb6/edit/hrXGA.jpg?t=177528825483",
+                    "width": 2376,
+                    "height": 1584
+                },
+                {
+                    "id": "98Q681k0",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-nGIZS74.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "KmejDLAb",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-fU8_OhC.jpg?t=177522983259",
+                    "width": 2534,
+                    "height": 3801
+                },
+                {
+                    "id": "35J4W0Ml",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-xx20X9B.jpg?t=177522983259",
+                    "width": 2534,
+                    "height": 3801
+                },
+                {
+                    "id": "rxOBDQqQ",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-wN_HCCe.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "KPaYWYPL",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-0WwHSAw.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "rwAgg7vx",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/interior/9Wx1Mk13-rZgLTWV.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2761
+                },
+                {
+                    "id": "3oMG7WM1",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-q5MG-GA.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2851
+                },
+                {
+                    "id": "9a01VwnP",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-iCxyQog.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2750
+                },
+                {
+                    "id": "rkwPOGDW",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-bWLlZfL.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2726
+                },
+                {
+                    "id": "KVqnoL2Y",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/interior/9Wx1Mk13-nyuFEj_.jpg?t=177438979432",
+                    "width": 2774,
+                    "height": 4160
+                },
+                {
+                    "id": "9lXm7AV2",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-Yu8geCc.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "92Xm06kb",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-nujHL9X.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "rxbwkbo0",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/interior/9Wx1Mk13-skLB2sn.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "3LnDXv8W",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-ce0lU4s.jpg?t=177522983259",
+                    "width": 2751,
+                    "height": 4160
+                },
+                {
+                    "id": "rEjEyZDa",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-Oyxssax.jpg?t=177522983259",
+                    "width": 2682,
+                    "height": 4160
+                },
+                {
+                    "id": "KV4MJ71M",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-mPN6qGt.jpg?t=177522983259",
+                    "width": 2694,
+                    "height": 4160
+                },
+                {
+                    "id": "9ldqD8zN",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-DPNnqTz.jpg?t=177522983259",
+                    "width": 2624,
+                    "height": 3936
+                },
+                {
+                    "id": "9XYp18Nq",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-7XEpMXj.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2662
+                },
+                {
+                    "id": "9nAZkdZD",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-vVfXrRh.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "rGybBEgE",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-DRd7NQr.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2773
+                },
+                {
+                    "id": "3v8RmElO",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-UdfMLJn.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2785
+                },
+                {
+                    "id": "rNadg5Yb",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-EeApTN1.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 3239
+                },
+                {
+                    "id": "rJJp0ozg",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-4CcCWD7.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "KP01yZm2",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-pIGDEHs.jpg?t=177522983259",
+                    "width": 2624,
+                    "height": 3936
+                },
+                {
+                    "id": "K17lqDvd",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/interior/9Wx1Mk13-zrrihWO.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2774
+                },
+                {
+                    "id": "9QD5pAxE",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-u3dzHvO.jpg?t=177522983259",
+                    "width": 4160,
+                    "height": 2773
+                },
+                {
+                    "id": "3okRPvWa",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/interior/9Wx1Mk13-T-GNAD1.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2773
+                },
+                {
+                    "id": "3geoXBWo",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-0-3TUzj.jpeg?t=177618936908",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "KYDGlZYL",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/other/9Wx1Mk13-uUwPIAK.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2774
+                }
+            ],
+            "mechanical": [
+                {
+                    "id": "3RJWndLq",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/mechanical/9Wx1Mk13-L_IuhK-.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2759
+                },
+                {
+                    "id": "rjgz0Max",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-y_nWZRj.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "rGxbyEdg",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-xFImzpX.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "3qqRL8La",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-CnAa1er.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "3RJMnplq",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-DZcsqiB.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "3OqBpLoj",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-T7mGsS-.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "rJXpEogv",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-3oB5fDL.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "9QzaEAae",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-_DPaz-x.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                },
+                {
+                    "id": "rk4wVOQb",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/mechanical/9Wx1Mk13-QtFk2a_.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2490
+                },
+                {
+                    "id": "9WkxnmEV",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/mechanical/9Wx1Mk13-6aZ4l46.jpg?t=177438979432",
+                    "width": 4160,
+                    "height": 2754
+                },
+                {
+                    "id": "rNDdk5M7",
+                    "link": "15fdb6a8113e9c7b4f2e3b1270b4537298eb7733/photos/9Wx1Mk13-LLEAlJ6.jpeg?t=177522983259",
+                    "width": 4160,
+                    "height": 3120
+                }
+            ]
+        },
+        "make_slug": "porsche",
+        "model_slug": "991-911",
+        "videos": [
+            {
+                "id": "r40g82PV",
+                "path": {
+                    "base_url": "customer-cuf69xprmkaqooxd.cloudflarestream.com",
+                    "path": "f39b598f731c1d90617a9f8e432bbc49"
+                },
+                "attachment_type": "video",
+                "is_system_flagged": false,
+                "meta": {
+                    "title": "Start Up",
+                    "width": 3840,
+                    "height": 2160,
+                    "duration": 13.1,
+                    "cloudflare_id": "f39b598f731c1d90617a9f8e432bbc49"
+                },
+                "updated_at": "2026-04-04T07:18:59.137097+00:00",
+                "created_at": "2026-04-02T22:56:23.798424+00:00",
+                "attachment": null
+            },
+            {
+                "id": "KmZNGgRd",
+                "path": {
+                    "base_url": "customer-cuf69xprmkaqooxd.cloudflarestream.com",
+                    "path": "1a895dfba2b6d971f9f6529caa73e0b1"
+                },
+                "attachment_type": "video",
+                "is_system_flagged": false,
+                "meta": {
+                    "width": 1080,
+                    "height": 1920,
+                    "duration": 46.86,
+                    "cloudflare_id": "1a895dfba2b6d971f9f6529caa73e0b1"
+                },
+                "updated_at": "2026-04-20T17:25:04.612057+00:00",
+                "created_at": "2026-04-20T15:26:50.764612+00:00",
+                "attachment": null
+            }
+        ]
+    },
+    "status": "sold",
+    "finance": {
+        "disclosure": {
+            "price": 78000,
+            "dealer": false,
+            "term": 36,
+            "rate": 0.0734,
+            "payment": 2421
+        },
+        "minimum_payment": 1259
+    },
+    "shipping_quote_eligible": true,
+    "views": 16074
+}
