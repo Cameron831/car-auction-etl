@@ -312,14 +312,17 @@ def extract_sold_status(soup):
     if not available_info:
         raise ValueError("Could not parse sold status")
     text = available_info.get_text(" ", strip=True)
-    if "Bid to" in text:
+    if "Bid to" in text or "Withdrawn on" in text:
         return False
     elif "Sold for" in text:
         return True
     raise ValueError("Could not parse sold status")
 
 def extract_auction_end_date(soup):
-    date_tag = soup.select_one("span.date.date-localize")
+    date_tag = soup.select_one(
+        "span.date.date-localize, span.info-value.noborder-tiny.date-localize"
+    )
+
     if not date_tag:
         raise ValueError("Could not find sale date")
 
