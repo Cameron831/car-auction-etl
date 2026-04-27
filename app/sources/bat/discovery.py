@@ -55,7 +55,7 @@ SELECT
     ingested_at
 FROM discovered_listings
 WHERE source_site = %(source_site)s
-  AND ingested_at IS NULL
+  AND eligible IS NULL
 ORDER BY discovered_at ASC, id ASC
 """
 
