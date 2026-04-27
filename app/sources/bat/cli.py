@@ -12,10 +12,13 @@ from app.sources.bat.discovery import (
     mark_discovered_listing_handled_eligible,
     mark_discovered_listing_handled_ineligible,
 )
-from app.sources.bat.ingest import fetch_listing_html, save_listing_html
+from app.sources.bat.ingest import (
+    evaluate_listing_eligibility,
+    fetch_listing_html,
+    save_listing_html,
+)
 from app.sources.bat.load import load_listing
 from app.sources.bat.transform import (
-    evaluate_listing_eligibility,
     load_pending_raw_listing_html,
     transform_listing_html,
 )
