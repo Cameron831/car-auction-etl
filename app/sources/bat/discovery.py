@@ -17,9 +17,6 @@ DISCOVERY_PER_PAGE = 60
 DISCOVERY_TIMEOUT_SECONDS = 10
 logger = logging.getLogger(__name__)
 
-DISCOVERY_MIN_YEAR = 1946
-DISCOVERY_ALLOWED_SOURCE_LOCATION = "US"
-
 
 UPSERT_DISCOVERED_LISTING_SQL = """
 INSERT INTO discovered_listings (
@@ -27,21 +24,18 @@ INSERT INTO discovered_listings (
     source_listing_id,
     url,
     title,
-    auction_end_date,
-    source_location
+    auction_end_date
 ) VALUES (
     %(source_site)s,
     %(source_listing_id)s,
     %(url)s,
     %(title)s,
-    %(auction_end_date)s,
-    %(source_location)s
+    %(auction_end_date)s
 )
 ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
     url = EXCLUDED.url,
     title = EXCLUDED.title,
     auction_end_date = EXCLUDED.auction_end_date,
-    source_location = EXCLUDED.source_location,
     last_seen_at = NOW()
 RETURNING xmax = 0 AS inserted
 """
@@ -54,7 +48,6 @@ SELECT
     url,
     title,
     auction_end_date,
-    source_location,
     eligible,
     eligibility_reason,
     discovered_at,
@@ -143,10 +136,6 @@ def normalize_completed_auction_candidate(item):
     auction_end_date = _parse_auction_end_date(item.get("timestamp_end"))
     if auction_end_date:
         candidate["auction_end_date"] = auction_end_date
-
-    source_location = item.get("country_code")
-    if source_location:
-        candidate["source_location"] = str(source_location).strip()
 
     return candidate
 
@@ -283,19 +272,7 @@ def build_discovered_listing_params(candidate):
         "url": candidate["url"],
         "title": candidate.get("title"),
         "auction_end_date": candidate.get("auction_end_date"),
-        "source_location": candidate.get("source_location"),
     }
-
-
-def evaluate_discovery_eligibility(listing_id, source_location):
-    year = _parse_listing_id_year(listing_id)
-    if year is None:
-        return False, "listing ID year missing"
-    if year < DISCOVERY_MIN_YEAR:
-        return False, "year before 1946"
-    if source_location != DISCOVERY_ALLOWED_SOURCE_LOCATION:
-        return False, "listing outside US"
-    return True, None
 
 
 def _get_database_url():
@@ -313,13 +290,6 @@ def _normalize_scrape_date(value):
         return date.fromisoformat(value)
 
     raise TypeError("scrape_date must be a date or ISO date string")
-
-
-def _parse_listing_id_year(listing_id):
-    match = re.match(r"^(\d{4})(?:-|$)", listing_id or "")
-    if not match:
-        return None
-    return int(match.group(1))
 
 
 def _build_candidate_from_item(item, summary):

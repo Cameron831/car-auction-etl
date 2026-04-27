@@ -25,21 +25,18 @@ INSERT INTO discovered_listings (
     source_listing_id,
     url,
     title,
-    auction_end_date,
-    source_location
+    auction_end_date
 ) VALUES (
     %(source_site)s,
     %(source_listing_id)s,
     %(url)s,
     %(title)s,
-    %(auction_end_date)s,
-    %(source_location)s
+    %(auction_end_date)s
 )
 ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
     url = EXCLUDED.url,
     title = EXCLUDED.title,
     auction_end_date = EXCLUDED.auction_end_date,
-    source_location = EXCLUDED.source_location,
     last_seen_at = NOW()
 RETURNING xmax = 0 AS inserted
 """
@@ -289,9 +286,6 @@ def normalize_completed_auction_candidate(auction):
     if auction_end_date:
         candidate["auction_end_date"] = auction_end_date
 
-    location = auction.get("location")
-    candidate["source_location"] = _normalize_source_location(location)
-
     return candidate
 
 
@@ -302,7 +296,6 @@ def build_discovered_listing_params(candidate):
         "url": candidate["url"],
         "title": candidate.get("title"),
         "auction_end_date": candidate.get("auction_end_date"),
-        "source_location": candidate.get("source_location"),
     }
 
 
@@ -398,8 +391,3 @@ def _parse_auction_end_date(value):
         text = f"{text[:-1]}+00:00"
     return datetime.fromisoformat(text).date().isoformat()
 
-
-def _normalize_source_location(location):
-    if location and "canada" in str(location).lower():
-        return "CAN"
-    return "USA"

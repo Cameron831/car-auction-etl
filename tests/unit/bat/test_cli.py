@@ -176,10 +176,9 @@ def test_ingest_discovered_command_dispatches_with_parsed_options(mocker, caplog
         "app.sources.bat.cli.ingest_discovered_listings",
         return_value=cli.BatchIngestSummary(
             selected=3,
-            stage_1_rejected=1,
             scrape_attempted=2,
             scrape_failed=1,
-            stage_2_rejected=0,
+            rejected=1,
             raw_html_stored=1,
             accepted=1,
         ),
@@ -191,13 +190,13 @@ def test_ingest_discovered_command_dispatches_with_parsed_options(mocker, caplog
     ingest_discovered_listings.assert_called_once_with(batch_size=5)
     assert "BAT ingest-discovered command started for batch_size=5" in caplog.text
     assert (
-        "BAT ingest-discovered summary selected=3 stage_1_rejected=1 scrape_attempted=2 "
-        "scrape_failed=1 stage_2_rejected=0 raw_html_stored=1 accepted=1"
+        "BAT ingest-discovered summary selected=3 scrape_attempted=2 "
+        "scrape_failed=1 rejected=1 raw_html_stored=1 accepted=1"
     ) in caplog.text
     assert "BAT ingest-discovered command completed for batch_size=5" in caplog.text
     assert (
-        "Ingest-discovered summary: selected=3 stage_1_rejected=1 scrape_attempted=2 "
-        "scrape_failed=1 stage_2_rejected=0 raw_html_stored=1 accepted=1"
+        "Ingest-discovered summary: selected=3 scrape_attempted=2 "
+        "scrape_failed=1 rejected=1 raw_html_stored=1 accepted=1"
     ) in capsys.readouterr().out
 
 
@@ -290,38 +289,44 @@ def test_transform_discovered_listings_returns_zeroed_summary_for_empty_batch(mo
     assert summary == cli.BatchTransformSummary()
 
 
-def test_ingest_discovered_listings_marks_stage_1_reject_without_scrape(mocker, caplog):
+def test_ingest_discovered_listings_marks_reject_without_saving_html(mocker, caplog):
     mocker.patch(
         "app.sources.bat.cli.load_pending_discovered_listings",
         return_value=[
             {
-                "source_listing_id": "stage-1-reject",
+                "source_listing_id": "rejected",
                 "title": "1940 Ford Coupe",
-                "source_location": "US",
-                "url": "https://bringatrailer.com/listing/stage-1-reject/",
+                "url": "https://bringatrailer.com/listing/rejected/",
             }
         ],
     )
-    evaluate_discovery_eligibility = mocker.patch(
-        "app.sources.bat.cli.evaluate_discovery_eligibility",
+    mocker.patch(
+        "app.sources.bat.cli.fetch_listing_html",
+        return_value="<html><body>listing</body></html>",
+    )
+    evaluate_listing_eligibility = mocker.patch(
+        "app.sources.bat.cli.evaluate_listing_eligibility",
         return_value=(False, "year before 1946"),
     )
     mark_ineligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_ineligible")
-    fetch_listing_html = mocker.patch("app.sources.bat.cli.fetch_listing_html")
+    save_listing_html = mocker.patch("app.sources.bat.cli.save_listing_html")
 
     caplog.set_level(logging.INFO)
     summary = cli.ingest_discovered_listings()
 
-    evaluate_discovery_eligibility.assert_called_once_with("stage-1-reject", "US")
-    mark_ineligible.assert_called_once_with("stage-1-reject", "year before 1946")
-    fetch_listing_html.assert_not_called()
+    evaluate_listing_eligibility.assert_called_once()
+    _, listing_id = evaluate_listing_eligibility.call_args.args
+    assert listing_id == "rejected"
+    mark_ineligible.assert_called_once_with("rejected", "year before 1946")
+    save_listing_html.assert_not_called()
     assert (
-        "BAT ingest-discovered listing rejected for listing_id=stage-1-reject "
-        "stage=stage_1 reason=year before 1946"
+        "BAT ingest-discovered listing rejected for listing_id=rejected "
+        "reason=year before 1946"
     ) in caplog.text
     assert summary == cli.BatchIngestSummary(
         selected=1,
-        stage_1_rejected=1,
+        scrape_attempted=1,
+        rejected=1,
     )
 
 
@@ -332,14 +337,9 @@ def test_ingest_discovered_listings_records_scrape_failure_without_marking_row(m
             {
                 "source_listing_id": "scrape-fail",
                 "title": "1967 Porsche 911S Coupe",
-                "source_location": "US",
                 "url": "https://bringatrailer.com/listing/scrape-fail/",
             }
         ],
-    )
-    mocker.patch(
-        "app.sources.bat.cli.evaluate_discovery_eligibility",
-        return_value=(True, None),
     )
     mocker.patch(
         "app.sources.bat.cli.fetch_listing_html",
@@ -359,21 +359,16 @@ def test_ingest_discovered_listings_records_scrape_failure_without_marking_row(m
     )
 
 
-def test_ingest_discovered_listings_marks_stage_2_reject_without_saving_html(mocker, caplog):
+def test_ingest_discovered_listings_marks_category_reject_without_saving_html(mocker, caplog):
     mocker.patch(
         "app.sources.bat.cli.load_pending_discovered_listings",
         return_value=[
             {
-                "source_listing_id": "stage-2-reject",
+                "source_listing_id": "category-reject",
                 "title": "1967 Porsche 911S Coupe",
-                "source_location": "US",
-                "url": "https://bringatrailer.com/listing/stage-2-reject/",
+                "url": "https://bringatrailer.com/listing/category-reject/",
             }
         ],
-    )
-    mocker.patch(
-        "app.sources.bat.cli.evaluate_discovery_eligibility",
-        return_value=(True, None),
     )
     mocker.patch(
         "app.sources.bat.cli.fetch_listing_html",
@@ -391,35 +386,30 @@ def test_ingest_discovered_listings_marks_stage_2_reject_without_saving_html(moc
 
     evaluate_listing_eligibility.assert_called_once()
     _, listing_id = evaluate_listing_eligibility.call_args.args
-    assert listing_id == "stage-2-reject"
-    mark_ineligible.assert_called_once_with("stage-2-reject", "excluded category: projects")
+    assert listing_id == "category-reject"
+    mark_ineligible.assert_called_once_with("category-reject", "excluded category: projects")
     save_listing_html.assert_not_called()
     assert (
-        "BAT ingest-discovered listing rejected for listing_id=stage-2-reject "
-        "stage=stage_2 reason=excluded category: projects"
+        "BAT ingest-discovered listing rejected for listing_id=category-reject "
+        "reason=excluded category: projects"
     ) in caplog.text
     assert summary == cli.BatchIngestSummary(
         selected=1,
         scrape_attempted=1,
-        stage_2_rejected=1,
+        rejected=1,
     )
 
 
-def test_ingest_discovered_listings_saves_html_and_marks_eligible_for_stage_2_pass(mocker):
+def test_ingest_discovered_listings_saves_html_and_marks_eligible_for_pass(mocker):
     mocker.patch(
         "app.sources.bat.cli.load_pending_discovered_listings",
         return_value=[
             {
                 "source_listing_id": "accepted",
                 "title": "1967 Porsche 911S Coupe",
-                "source_location": "US",
                 "url": "https://bringatrailer.com/listing/accepted/",
             }
         ],
-    )
-    mocker.patch(
-        "app.sources.bat.cli.evaluate_discovery_eligibility",
-        return_value=(True, None),
     )
     mocker.patch(
         "app.sources.bat.cli.fetch_listing_html",
@@ -448,21 +438,16 @@ def test_ingest_discovered_listings_saves_html_and_marks_eligible_for_stage_2_pa
     )
 
 
-def test_ingest_discovered_listings_uses_listing_id_for_stage_2_when_discovered_title_missing(mocker):
+def test_ingest_discovered_listings_uses_listing_id_when_discovered_title_missing(mocker):
     mocker.patch(
         "app.sources.bat.cli.load_pending_discovered_listings",
         return_value=[
             {
                 "source_listing_id": "1967-fallback-title",
                 "title": None,
-                "source_location": "US",
                 "url": "https://bringatrailer.com/listing/1967-fallback-title/",
             }
         ],
-    )
-    mocker.patch(
-        "app.sources.bat.cli.evaluate_discovery_eligibility",
-        return_value=(True, None),
     )
     mocker.patch(
         "app.sources.bat.cli.fetch_listing_html",
@@ -487,51 +472,40 @@ def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):
         "app.sources.bat.cli.load_pending_discovered_listings",
         return_value=[
             {
-                "source_listing_id": "stage-1-reject",
+                "source_listing_id": "year-reject",
                 "title": "1940 Ford Coupe",
-                "source_location": "US",
-                "url": "https://bringatrailer.com/listing/stage-1-reject/",
+                "url": "https://bringatrailer.com/listing/year-reject/",
             },
             {
                 "source_listing_id": "scrape-fail",
                 "title": "1967 Porsche 911S Coupe",
-                "source_location": "US",
                 "url": "https://bringatrailer.com/listing/scrape-fail/",
             },
             {
-                "source_listing_id": "stage-2-reject",
+                "source_listing_id": "category-reject",
                 "title": "1969 Porsche 911E Coupe",
-                "source_location": "US",
-                "url": "https://bringatrailer.com/listing/stage-2-reject/",
+                "url": "https://bringatrailer.com/listing/category-reject/",
             },
             {
                 "source_listing_id": "accepted",
                 "title": "1970 Porsche 911T Coupe",
-                "source_location": "US",
                 "url": "https://bringatrailer.com/listing/accepted/",
             },
         ],
     )
     mocker.patch(
-        "app.sources.bat.cli.evaluate_discovery_eligibility",
-        side_effect=[
-            (False, "year before 1946"),
-            (True, None),
-            (True, None),
-            (True, None),
-        ],
-    )
-    mocker.patch(
         "app.sources.bat.cli.fetch_listing_html",
         side_effect=[
+            "<html><body>year reject</body></html>",
             RuntimeError("network failed"),
-            "<html><body>stage-2 reject</body></html>",
+            "<html><body>category reject</body></html>",
             "<html><body>accepted</body></html>",
         ],
     )
     mocker.patch(
         "app.sources.bat.cli.evaluate_listing_eligibility",
         side_effect=[
+            (False, "year before 1946"),
             (False, "excluded category: projects"),
             (True, None),
         ],
@@ -544,16 +518,15 @@ def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):
 
     assert summary == cli.BatchIngestSummary(
         selected=4,
-        stage_1_rejected=1,
-        scrape_attempted=3,
+        scrape_attempted=4,
         scrape_failed=1,
-        stage_2_rejected=1,
+        rejected=2,
         raw_html_stored=1,
         accepted=1,
     )
     assert mark_ineligible.call_args_list == [
-        mocker.call("stage-1-reject", "year before 1946"),
-        mocker.call("stage-2-reject", "excluded category: projects"),
+        mocker.call("year-reject", "year before 1946"),
+        mocker.call("category-reject", "excluded category: projects"),
     ]
     save_listing_html.assert_called_once_with(
         "accepted",
