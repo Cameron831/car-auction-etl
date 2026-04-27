@@ -7,31 +7,15 @@ from bs4 import BeautifulSoup
 import psycopg
 from psycopg.rows import dict_row
 
+from app.sources.bat.ingest import (
+    extract_country,
+    extract_group_value,
+    parse_listing_id_year,
+)
+
 
 SOURCE_SITE = "bringatrailer"
 logger = logging.getLogger(__name__)
-BAT_MIN_YEAR = 1946
-BAT_ALLOWED_COUNTRY = "USA"
-EXCLUDED_CATEGORY_VALUES = {
-    "aircraft",
-    "all-terrain vehicles",
-    "boats",
-    "charity & non-profit",
-    "go-karts",
-    "hot rods",
-    "military vehicles",
-    "minibikes & scooters",
-    "motorcycles",
-    "parts",
-    "projects",
-    "race cars",
-    "rvs & campers",
-    "service vehicles",
-    "side-by-sides",
-    "tractors",
-    "trains",
-    "wheels",
-}
 
 SELECT_RAW_LISTING_HTML_SQL = """
 SELECT raw_html
@@ -145,38 +129,6 @@ def transform_listing_html(listing_id):
     return transformed_data
 
 
-def evaluate_listing_eligibility(soup, listing_id):
-    try:
-        year = parse_listing_id_year(listing_id)
-    except ValueError:
-        return False, "listing ID year missing"
-
-    if year < BAT_MIN_YEAR:
-        return False, "year before 1946"
-
-    if extract_country(soup) != BAT_ALLOWED_COUNTRY:
-        return False, "listing outside US"
-
-    categories = extract_group_value(soup, "Category")
-    if categories is None:
-        return True, None
-
-    for category in categories:
-        if _normalize_category_value(category) in EXCLUDED_CATEGORY_VALUES:
-            return False, f"excluded category: {category}"
-
-    return True, None
-
-def extract_country(soup):
-    country_tag = soup.select_one("span.show-country-name")
-    if country_tag is None:
-        return None
-
-    country = country_tag.get_text(" ", strip=True)
-    if not country:
-        return None
-    return country
-
 def get_product_json_ld(soup):
     for script_tag in soup.find_all("script", attrs={"type": "application/ld+json"}):
         script_content = script_tag.string
@@ -214,12 +166,6 @@ def _strip_listing_prefix(title):
         raise ValueError("Could not parse listing title")
     return match.group(1).strip()
 
-def parse_listing_id_year(listing_id):
-    match = re.match(r"^(\d{4})(?:-|$)", listing_id or "")
-    if not match:
-        raise ValueError("Could not parse year from listing ID")
-    return int(match.group(1))
-
 def parse_model(soup):
     values = extract_group_value(soup, "Model")
     if values is None:
@@ -231,34 +177,6 @@ def parse_make(soup):
     if values is None:
         raise ValueError("Could not find 'Make' group")
     return values[0]
-
-def extract_group_value(soup: BeautifulSoup, label: str) -> list[str] | None:
-    values = []
-
-    for label_tag in soup.select("strong.group-title-label"):
-        if label_tag.get_text(strip=True) != label:
-            continue
-
-        group_tag = (
-            label_tag.find_parent("button", class_="group-title")
-            or label_tag.find_parent("a", class_="group-link")
-        )
-        if not group_tag:
-            continue
-
-        full_text = group_tag.get_text(" ", strip=True)
-        label_text = label_tag.get_text(" ", strip=True)
-
-        value = full_text.removeprefix(label_text).strip()
-        if not value:
-            continue
-
-        values.append(value)
-
-    if not values:
-        return None
-
-    return values
 
 def get_listing_details(soup):
     details_header = soup.find("strong", string=re.compile(r"Listing Details"))
@@ -353,7 +271,3 @@ def normalize_transmission(raw_transmission):
     if value:
         return "automatic"
     raise ValueError("Could not normalize transmission")
-
-
-def _normalize_category_value(value):
-    return " ".join(value.lower().split())
