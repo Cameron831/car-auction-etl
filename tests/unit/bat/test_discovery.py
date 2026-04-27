@@ -417,7 +417,10 @@ def test_load_pending_discovered_listings_selects_pending_bat_rows_in_stable_ord
     assert calls["cursor_kwargs"] == [{"row_factory": discovery.dict_row}]
     assert "FROM discovered_listings" in sql
     assert "WHERE source_site = %(source_site)s" in sql
-    assert "AND ingested_at IS NULL" in sql
+    assert "AND eligible IS NULL" in sql
+    assert "AND ingested_at IS NULL" not in sql
+    assert "eligible = TRUE" not in sql
+    assert "eligible = FALSE" not in sql
     assert "ORDER BY discovered_at ASC, id ASC" in sql
     assert "LIMIT %(limit)s" not in sql
     assert params == {"source_site": "bringatrailer"}
