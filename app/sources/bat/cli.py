@@ -9,8 +9,7 @@ from dotenv import load_dotenv
 from app.sources.bat.discovery import (
     discover_completed_auctions,
     load_pending_discovered_listings,
-    mark_discovered_listing_handled_eligible,
-    mark_discovered_listing_handled_ineligible,
+    mark_discovered_listing_handled,
 )
 from app.sources.bat.ingest import (
     evaluate_listing_eligibility,
@@ -118,19 +117,18 @@ def ingest_discovered_listings(batch_size=None):
 
         soup = BeautifulSoup(html, "html.parser")
         eligible, reason = evaluate_listing_eligibility(soup, listing_id)
+        mark_discovered_listing_handled(listing_id, eligible, reason)
         if not eligible:
             logger.info(
                 "BAT ingest-discovered listing rejected for listing_id=%s reason=%s",
                 listing_id,
                 reason,
             )
-            mark_discovered_listing_handled_ineligible(listing_id, reason)
             summary.rejected += 1
             continue
 
         save_listing_html(listing_id, html, url=row["url"])
         summary.raw_html_stored += 1
-        mark_discovered_listing_handled_eligible(listing_id)
         summary.accepted += 1
 
     return summary

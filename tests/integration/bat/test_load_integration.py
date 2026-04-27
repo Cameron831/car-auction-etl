@@ -176,17 +176,18 @@ def test_discovery_helpers_select_pending_rows_and_persist_handled_state(monkeyp
         limited_rows = discovery.load_pending_discovered_listings(limit=1)
         limited_ids = [row["source_listing_id"] for row in limited_rows]
 
-        discovery.mark_discovered_listing_handled_ineligible(
+        discovery.mark_discovered_listing_handled(
             "first-pending",
+            False,
             "sale_price missing",
         )
-        discovery.mark_discovered_listing_handled_eligible("second-pending")
+        discovery.mark_discovered_listing_handled("second-pending", True, None)
 
         with psycopg.connect(database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT source_listing_id, eligible, eligibility_reason, ingested_at IS NOT NULL
+                    SELECT source_listing_id, eligible, eligibility_reason, ingested_at IS NULL
                     FROM discovered_listings
                     WHERE source_site = 'bringatrailer'
                       AND source_listing_id IN ('first-pending', 'second-pending')

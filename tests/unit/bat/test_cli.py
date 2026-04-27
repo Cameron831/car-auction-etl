@@ -308,7 +308,7 @@ def test_ingest_discovered_listings_marks_reject_without_saving_html(mocker, cap
         "app.sources.bat.cli.evaluate_listing_eligibility",
         return_value=(False, "year before 1946"),
     )
-    mark_ineligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_ineligible")
+    mark_handled = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled")
     save_listing_html = mocker.patch("app.sources.bat.cli.save_listing_html")
 
     caplog.set_level(logging.INFO)
@@ -317,7 +317,7 @@ def test_ingest_discovered_listings_marks_reject_without_saving_html(mocker, cap
     evaluate_listing_eligibility.assert_called_once()
     _, listing_id = evaluate_listing_eligibility.call_args.args
     assert listing_id == "rejected"
-    mark_ineligible.assert_called_once_with("rejected", "year before 1946")
+    mark_handled.assert_called_once_with("rejected", False, "year before 1946")
     save_listing_html.assert_not_called()
     assert (
         "BAT ingest-discovered listing rejected for listing_id=rejected "
@@ -345,13 +345,11 @@ def test_ingest_discovered_listings_records_scrape_failure_without_marking_row(m
         "app.sources.bat.cli.fetch_listing_html",
         side_effect=RuntimeError("network failed"),
     )
-    mark_ineligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_ineligible")
-    mark_eligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_eligible")
+    mark_handled = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled")
 
     summary = cli.ingest_discovered_listings()
 
-    mark_ineligible.assert_not_called()
-    mark_eligible.assert_not_called()
+    mark_handled.assert_not_called()
     assert summary == cli.BatchIngestSummary(
         selected=1,
         scrape_attempted=1,
@@ -378,7 +376,7 @@ def test_ingest_discovered_listings_marks_category_reject_without_saving_html(mo
         "app.sources.bat.cli.evaluate_listing_eligibility",
         return_value=(False, "excluded category: projects"),
     )
-    mark_ineligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_ineligible")
+    mark_handled = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled")
     save_listing_html = mocker.patch("app.sources.bat.cli.save_listing_html")
 
     caplog.set_level(logging.INFO)
@@ -387,7 +385,11 @@ def test_ingest_discovered_listings_marks_category_reject_without_saving_html(mo
     evaluate_listing_eligibility.assert_called_once()
     _, listing_id = evaluate_listing_eligibility.call_args.args
     assert listing_id == "category-reject"
-    mark_ineligible.assert_called_once_with("category-reject", "excluded category: projects")
+    mark_handled.assert_called_once_with(
+        "category-reject",
+        False,
+        "excluded category: projects",
+    )
     save_listing_html.assert_not_called()
     assert (
         "BAT ingest-discovered listing rejected for listing_id=category-reject "
@@ -420,7 +422,10 @@ def test_ingest_discovered_listings_saves_html_and_marks_eligible_for_pass(mocke
         return_value=(True, None),
     )
     save_listing_html = mocker.patch("app.sources.bat.cli.save_listing_html")
-    mark_eligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_eligible")
+    mark_handled = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled")
+    calls = mocker.Mock()
+    calls.attach_mock(save_listing_html, "save_listing_html")
+    calls.attach_mock(mark_handled, "mark_handled")
 
     summary = cli.ingest_discovered_listings()
 
@@ -429,7 +434,15 @@ def test_ingest_discovered_listings_saves_html_and_marks_eligible_for_pass(mocke
         "<html><body>listing</body></html>",
         url="https://bringatrailer.com/listing/accepted/",
     )
-    mark_eligible.assert_called_once_with("accepted")
+    mark_handled.assert_called_once_with("accepted", True, None)
+    assert calls.mock_calls == [
+        mocker.call.mark_handled("accepted", True, None),
+        mocker.call.save_listing_html(
+            "accepted",
+            "<html><body>listing</body></html>",
+            url="https://bringatrailer.com/listing/accepted/",
+        ),
+    ]
     assert summary == cli.BatchIngestSummary(
         selected=1,
         scrape_attempted=1,
@@ -458,7 +471,7 @@ def test_ingest_discovered_listings_uses_listing_id_when_discovered_title_missin
         return_value=(True, None),
     )
     mocker.patch("app.sources.bat.cli.save_listing_html")
-    mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_eligible")
+    mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled")
 
     cli.ingest_discovered_listings()
 
@@ -511,8 +524,10 @@ def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):
         ],
     )
     save_listing_html = mocker.patch("app.sources.bat.cli.save_listing_html")
-    mark_ineligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_ineligible")
-    mark_eligible = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled_eligible")
+    mark_handled = mocker.patch("app.sources.bat.cli.mark_discovered_listing_handled")
+    calls = mocker.Mock()
+    calls.attach_mock(save_listing_html, "save_listing_html")
+    calls.attach_mock(mark_handled, "mark_handled")
 
     summary = cli.ingest_discovered_listings()
 
@@ -524,16 +539,24 @@ def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):
         raw_html_stored=1,
         accepted=1,
     )
-    assert mark_ineligible.call_args_list == [
-        mocker.call("year-reject", "year before 1946"),
-        mocker.call("category-reject", "excluded category: projects"),
+    assert mark_handled.call_args_list == [
+        mocker.call("year-reject", False, "year before 1946"),
+        mocker.call("category-reject", False, "excluded category: projects"),
+        mocker.call("accepted", True, None),
     ]
     save_listing_html.assert_called_once_with(
         "accepted",
         "<html><body>accepted</body></html>",
         url="https://bringatrailer.com/listing/accepted/",
     )
-    mark_eligible.assert_called_once_with("accepted")
+    assert calls.mock_calls[-2:] == [
+        mocker.call.mark_handled("accepted", True, None),
+        mocker.call.save_listing_html(
+            "accepted",
+            "<html><body>accepted</body></html>",
+            url="https://bringatrailer.com/listing/accepted/",
+        ),
+    ]
 
 
 def test_transform_discovered_listings_handles_mixed_batch_outcomes(mocker, caplog):

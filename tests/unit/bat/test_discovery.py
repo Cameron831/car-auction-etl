@@ -473,7 +473,7 @@ def test_load_pending_discovered_listings_returns_empty_without_query_for_non_po
     connect.assert_not_called()
 
 
-def test_mark_discovered_listing_handled_ineligible_updates_state(mocker):
+def test_mark_discovered_listing_handled_updates_ineligible_state(mocker):
     calls = {"executions": []}
 
     class FakeCursor:
@@ -502,24 +502,26 @@ def test_mark_discovered_listing_handled_ineligible_updates_state(mocker):
     )
     mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
 
-    discovery.mark_discovered_listing_handled_ineligible(
+    discovery.mark_discovered_listing_handled(
         "test-listing",
+        False,
         "auction did not meet eligibility rules",
     )
 
     sql, params = calls["executions"][0]
     assert "UPDATE discovered_listings" in sql
-    assert "SET ingested_at = NOW()" in sql
-    assert "eligible = FALSE" in sql
+    assert "ingested_at" not in sql
+    assert "eligible = %(eligible)s" in sql
     assert "eligibility_reason = %(eligibility_reason)s" in sql
     assert params == {
         "source_site": "bringatrailer",
         "source_listing_id": "test-listing",
+        "eligible": False,
         "eligibility_reason": "auction did not meet eligibility rules",
     }
 
 
-def test_mark_discovered_listing_handled_eligible_updates_state(mocker):
+def test_mark_discovered_listing_handled_updates_eligible_state(mocker):
     calls = {"executions": []}
 
     class FakeCursor:
@@ -548,17 +550,36 @@ def test_mark_discovered_listing_handled_eligible_updates_state(mocker):
     )
     mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
 
-    discovery.mark_discovered_listing_handled_eligible("test-listing")
+    discovery.mark_discovered_listing_handled(
+        "test-listing",
+        True,
+        "ignored reason",
+    )
 
     sql, params = calls["executions"][0]
     assert "UPDATE discovered_listings" in sql
-    assert "SET ingested_at = NOW()" in sql
-    assert "eligible = TRUE" in sql
-    assert "eligibility_reason = NULL" in sql
+    assert "ingested_at" not in sql
+    assert "eligible = %(eligible)s" in sql
+    assert "eligibility_reason = %(eligibility_reason)s" in sql
     assert params == {
         "source_site": "bringatrailer",
         "source_listing_id": "test-listing",
+        "eligible": True,
+        "eligibility_reason": None,
     }
+
+
+def test_mark_discovered_listing_handled_requires_reason_for_ineligible(mocker):
+    connect = mocker.patch.object(discovery.psycopg, "connect")
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+
+    with pytest.raises(ValueError, match="reason is required"):
+        discovery.mark_discovered_listing_handled("test-listing", False, "")
+
+    connect.assert_not_called()
 
 
 def _candidate():
