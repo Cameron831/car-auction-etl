@@ -70,7 +70,7 @@ def test_build_raw_listing_html_params_defaults_bat_url():
 
 
 def test_save_listing_html_executes_upsert_with_expected_conflict_target(mocker, caplog):
-    calls = {}
+    calls = {"execute": []}
 
     class FakeCursor:
         def __enter__(self):
@@ -80,8 +80,7 @@ def test_save_listing_html_executes_upsert_with_expected_conflict_target(mocker,
             return False
 
         def execute(self, sql, params):
-            calls["sql"] = sql
-            calls["params"] = params
+            calls["execute"].append((sql, params))
 
     class FakeConnection:
         def __enter__(self):
@@ -111,14 +110,24 @@ def test_save_listing_html_executes_upsert_with_expected_conflict_target(mocker,
     )
 
     assert calls["database_url"] == "postgresql://user:pass@localhost/db"
-    assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in calls["sql"]
-    assert "processed = FALSE" in calls["sql"]
-    assert calls["params"] == {
+    assert len(calls["execute"]) == 2
+    upsert_sql, upsert_params = calls["execute"][0]
+    marker_sql, marker_params = calls["execute"][1]
+    assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in upsert_sql
+    assert "processed = FALSE" in upsert_sql
+    assert "UPDATE discovered_listings" in marker_sql
+    assert "SET ingested_at = NOW()" in marker_sql
+    assert "source_site = %(source_site)s" in marker_sql
+    assert "source_listing_id = %(source_listing_id)s" in marker_sql
+    assert "eligible" not in marker_sql
+    assert "eligibility_reason" not in marker_sql
+    assert upsert_params == {
         "source_site": "bringatrailer",
         "source_listing_id": "test-id",
         "url": "https://example.test/listing/test-id",
         "raw_html": "<html>Test</html>",
     }
+    assert marker_params == upsert_params
     assert "Saved BAT raw listing HTML for listing_id=test-id" in caplog.text
     assert "<html>Test</html>" not in caplog.text
     assert "postgresql://user:pass@localhost/db" not in caplog.text

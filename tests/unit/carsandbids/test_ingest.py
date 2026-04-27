@@ -110,7 +110,7 @@ def test_build_raw_listing_json_params_defaults_public_listing_url():
 def test_save_listing_json_executes_upsert_with_expected_conflict_target(
     mocker, caplog
 ):
-    calls = {}
+    calls = {"execute": []}
     payload = {"id": "test-auction", "secret": "payload-content"}
 
     class FakeCursor:
@@ -121,8 +121,7 @@ def test_save_listing_json_executes_upsert_with_expected_conflict_target(
             return False
 
         def execute(self, sql, params):
-            calls["sql"] = sql
-            calls["params"] = params
+            calls["execute"].append((sql, params))
 
     class FakeConnection:
         def __enter__(self):
@@ -152,15 +151,25 @@ def test_save_listing_json_executes_upsert_with_expected_conflict_target(
     )
 
     assert calls["database_url"] == "postgresql://user:pass@localhost/db"
-    assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in calls["sql"]
-    assert "url = EXCLUDED.url" in calls["sql"]
-    assert "raw_json = EXCLUDED.raw_json" in calls["sql"]
-    assert "processed = FALSE" in calls["sql"]
-    assert calls["params"]["source_site"] == "carsandbids"
-    assert calls["params"]["source_listing_id"] == "test-auction"
-    assert calls["params"]["url"] == "https://example.test/auctions/test-auction"
-    assert isinstance(calls["params"]["raw_json"], Jsonb)
-    assert calls["params"]["raw_json"].obj == payload
+    assert len(calls["execute"]) == 2
+    upsert_sql, upsert_params = calls["execute"][0]
+    marker_sql, marker_params = calls["execute"][1]
+    assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in upsert_sql
+    assert "url = EXCLUDED.url" in upsert_sql
+    assert "raw_json = EXCLUDED.raw_json" in upsert_sql
+    assert "processed = FALSE" in upsert_sql
+    assert "UPDATE discovered_listings" in marker_sql
+    assert "SET ingested_at = NOW()" in marker_sql
+    assert "source_site = %(source_site)s" in marker_sql
+    assert "source_listing_id = %(source_listing_id)s" in marker_sql
+    assert "eligible" not in marker_sql
+    assert "eligibility_reason" not in marker_sql
+    assert upsert_params["source_site"] == "carsandbids"
+    assert upsert_params["source_listing_id"] == "test-auction"
+    assert upsert_params["url"] == "https://example.test/auctions/test-auction"
+    assert isinstance(upsert_params["raw_json"], Jsonb)
+    assert upsert_params["raw_json"].obj == payload
+    assert marker_params == upsert_params
     assert (
         "Saved Cars and Bids raw listing JSON for listing_id=test-auction"
         in caplog.text

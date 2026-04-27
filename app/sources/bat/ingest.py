@@ -51,6 +51,13 @@ ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
     processed = FALSE
 """
 
+MARK_DISCOVERED_LISTING_INGESTED_SQL = """
+UPDATE discovered_listings
+SET ingested_at = NOW()
+WHERE source_site = %(source_site)s
+  AND source_listing_id = %(source_listing_id)s
+"""
+
 
 def fetch_listing_html(id):
     url = f"https://bringatrailer.com/listing/{id}"
@@ -141,6 +148,7 @@ def save_listing_html(listing_id, html, url=None):
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
             cur.execute(UPSERT_RAW_LISTING_HTML_SQL, params)
+            cur.execute(MARK_DISCOVERED_LISTING_INGESTED_SQL, params)
             logger.info("Saved BAT raw listing HTML for listing_id=%s", listing_id)
 
 
