@@ -51,7 +51,6 @@ CREATE TABLE IF NOT EXISTS discovered_listings (
     url TEXT NOT NULL,
     title TEXT,
     auction_end_date DATE,
-    source_location TEXT,
     eligible BOOLEAN,
     eligibility_reason TEXT,
     discovered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

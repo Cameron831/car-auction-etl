@@ -11,6 +11,7 @@ from psycopg.rows import dict_row
 SOURCE_SITE = "bringatrailer"
 logger = logging.getLogger(__name__)
 BAT_MIN_YEAR = 1946
+BAT_ALLOWED_COUNTRY = "USA"
 EXCLUDED_CATEGORY_VALUES = {
     "aircraft",
     "all-terrain vehicles",
@@ -153,6 +154,9 @@ def evaluate_listing_eligibility(soup, listing_id):
     if year < BAT_MIN_YEAR:
         return False, "year before 1946"
 
+    if extract_country(soup) != BAT_ALLOWED_COUNTRY:
+        return False, "listing outside US"
+
     categories = extract_group_value(soup, "Category")
     if categories is None:
         return True, None
@@ -162,6 +166,16 @@ def evaluate_listing_eligibility(soup, listing_id):
             return False, f"excluded category: {category}"
 
     return True, None
+
+def extract_country(soup):
+    country_tag = soup.select_one("span.show-country-name")
+    if country_tag is None:
+        return None
+
+    country = country_tag.get_text(" ", strip=True)
+    if not country:
+        return None
+    return country
 
 def get_product_json_ld(soup):
     for script_tag in soup.find_all("script", attrs={"type": "application/ld+json"}):

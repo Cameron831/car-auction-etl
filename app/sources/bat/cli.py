@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 
 from app.sources.bat.discovery import (
     discover_completed_auctions,
-    evaluate_discovery_eligibility,
     load_pending_discovered_listings,
     mark_discovered_listing_handled_eligible,
     mark_discovered_listing_handled_ineligible,
@@ -29,10 +28,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class BatchIngestSummary:
     selected: int = 0
-    stage_1_rejected: int = 0
     scrape_attempted: int = 0
     scrape_failed: int = 0
-    stage_2_rejected: int = 0
+    rejected: int = 0
     raw_html_stored: int = 0
     accepted: int = 0
 
@@ -106,19 +104,6 @@ def ingest_discovered_listings(batch_size=None):
     for row in pending_rows:
         summary.selected += 1
         listing_id = row["source_listing_id"]
-        eligible, reason = evaluate_discovery_eligibility(
-            listing_id,
-            row.get("source_location"),
-        )
-        if not eligible:
-            logger.info(
-                "BAT ingest-discovered listing rejected for listing_id=%s stage=stage_1 reason=%s",
-                listing_id,
-                reason,
-            )
-            mark_discovered_listing_handled_ineligible(listing_id, reason)
-            summary.stage_1_rejected += 1
-            continue
 
         summary.scrape_attempted += 1
         try:
@@ -132,12 +117,12 @@ def ingest_discovered_listings(batch_size=None):
         eligible, reason = evaluate_listing_eligibility(soup, listing_id)
         if not eligible:
             logger.info(
-                "BAT ingest-discovered listing rejected for listing_id=%s stage=stage_2 reason=%s",
+                "BAT ingest-discovered listing rejected for listing_id=%s reason=%s",
                 listing_id,
                 reason,
             )
             mark_discovered_listing_handled_ineligible(listing_id, reason)
-            summary.stage_2_rejected += 1
+            summary.rejected += 1
             continue
 
         save_listing_html(listing_id, html, url=row["url"])
@@ -224,22 +209,20 @@ def main(argv=None):
             )
             summary = ingest_discovered_listings(batch_size=args.batch_size)
             logger.info(
-                "BAT ingest-discovered summary selected=%s stage_1_rejected=%s scrape_attempted=%s scrape_failed=%s stage_2_rejected=%s raw_html_stored=%s accepted=%s",
+                "BAT ingest-discovered summary selected=%s scrape_attempted=%s scrape_failed=%s rejected=%s raw_html_stored=%s accepted=%s",
                 summary.selected,
-                summary.stage_1_rejected,
                 summary.scrape_attempted,
                 summary.scrape_failed,
-                summary.stage_2_rejected,
+                summary.rejected,
                 summary.raw_html_stored,
                 summary.accepted,
             )
             print(
                 "Ingest-discovered summary: "
                 f"selected={summary.selected} "
-                f"stage_1_rejected={summary.stage_1_rejected} "
                 f"scrape_attempted={summary.scrape_attempted} "
                 f"scrape_failed={summary.scrape_failed} "
-                f"stage_2_rejected={summary.stage_2_rejected} "
+                f"rejected={summary.rejected} "
                 f"raw_html_stored={summary.raw_html_stored} "
                 f"accepted={summary.accepted}"
             )

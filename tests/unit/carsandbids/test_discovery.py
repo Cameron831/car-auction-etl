@@ -13,7 +13,6 @@ def test_normalize_completed_auction_candidate_maps_endpoint_auction():
             "id": "3gNQk4RZ",
             "title": " 2004 BMW M3 Coupe ",
             "auction_end": "2026-04-20T18:30:00Z",
-            "location": "Toronto, Canada",
         }
     )
 
@@ -24,20 +23,17 @@ def test_normalize_completed_auction_candidate_maps_endpoint_auction():
         "url": "https://carsandbids.com/auctions/3gNQk4RZ",
         "title": "2004 BMW M3 Coupe",
         "auction_end_date": "2026-04-20",
-        "source_location": "CAN",
     }
 
 
-def test_normalize_completed_auction_candidate_defaults_non_canada_location_to_usa():
+def test_normalize_completed_auction_candidate_parses_offset_auction_end():
     candidate = discovery.normalize_completed_auction_candidate(
         {
             "id": "3gNQk4RZ",
             "auction_end": "2026-04-20T18:30:00+00:00",
-            "location": "Los Angeles, CA",
         }
     )
 
-    assert candidate["source_location"] == "USA"
     assert candidate["auction_end_date"] == "2026-04-20"
 
 
@@ -549,7 +545,6 @@ def test_build_discovered_listing_params_maps_candidate_to_schema_columns():
             "url": "https://carsandbids.com/auctions/3gNQk4RZ",
             "title": "2004 BMW M3 Coupe",
             "auction_end_date": "2026-04-20",
-            "source_location": "CAN",
         }
     )
 
@@ -559,7 +554,6 @@ def test_build_discovered_listing_params_maps_candidate_to_schema_columns():
         "url": "https://carsandbids.com/auctions/3gNQk4RZ",
         "title": "2004 BMW M3 Coupe",
         "auction_end_date": "2026-04-20",
-        "source_location": "CAN",
     }
 
 
@@ -602,7 +596,6 @@ def test_save_discovered_listing_executes_source_generic_upsert(mocker, caplog):
             "url": "https://carsandbids.com/auctions/3gNQk4RZ",
             "title": "2004 BMW M3 Coupe",
             "auction_end_date": "2026-04-20",
-            "source_location": "USA",
         }
     )
 
@@ -613,7 +606,7 @@ def test_save_discovered_listing_executes_source_generic_upsert(mocker, caplog):
     assert "url = EXCLUDED.url" in sql
     assert "title = EXCLUDED.title" in sql
     assert "auction_end_date = EXCLUDED.auction_end_date" in sql
-    assert "source_location = EXCLUDED.source_location" in sql
+    assert "source_location" not in sql
     assert "last_seen_at = NOW()" in sql
     assert "eligible" not in sql
     assert "eligibility_reason" not in sql
@@ -624,7 +617,6 @@ def test_save_discovered_listing_executes_source_generic_upsert(mocker, caplog):
         "url": "https://carsandbids.com/auctions/3gNQk4RZ",
         "title": "2004 BMW M3 Coupe",
         "auction_end_date": "2026-04-20",
-        "source_location": "USA",
     }
     assert "Upserted Cars and Bids discovered listing for listing_id=3gNQk4RZ" in caplog.text
     assert "postgresql://user:pass@localhost/db" not in caplog.text

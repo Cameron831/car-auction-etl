@@ -676,11 +676,39 @@ def test_evaluate_listing_eligibility_rejects_pre_1946_listing_id():
     )
 
 
+def test_evaluate_listing_eligibility_rejects_missing_country():
+    soup = BeautifulSoup("<html><body></body></html>", "html.parser")
+
+    assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (
+        False,
+        "listing outside US",
+    )
+
+
+def test_evaluate_listing_eligibility_rejects_non_usa_country():
+    soup = BeautifulSoup(
+        """
+        <html>
+            <body>
+                <span class="show-country-name">CAN</span>
+            </body>
+        </html>
+        """,
+        "html.parser",
+    )
+
+    assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (
+        False,
+        "listing outside US",
+    )
+
+
 def test_evaluate_listing_eligibility_rejects_excluded_category():
     soup = BeautifulSoup(
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/parts/">
                     <strong class="group-title-label">Category</strong>
                     Parts
@@ -701,6 +729,7 @@ def test_evaluate_listing_eligibility_rejects_when_any_category_is_excluded():
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/convertible/">
                     <strong class="group-title-label">Category</strong>
                     Convertibles
@@ -726,6 +755,7 @@ def test_evaluate_listing_eligibility_rejects_projects_via_category():
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/project/">
                     <strong class="group-title-label">Category</strong>
                     Projects
@@ -747,6 +777,7 @@ def test_evaluate_listing_eligibility_rejects_race_cars_via_category():
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/race-car/">
                     <strong class="group-title-label">Category</strong>
                     Race Cars
@@ -768,6 +799,7 @@ def test_evaluate_listing_eligibility_rejects_replica_when_listing_id_year_missi
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/convertible/">
                     <strong class="group-title-label">Category</strong>
                     Convertibles
@@ -785,13 +817,19 @@ def test_evaluate_listing_eligibility_rejects_replica_when_listing_id_year_missi
 
 
 def test_evaluate_listing_eligibility_does_not_reject_missing_category():
-    soup = BeautifulSoup("<html><body></body></html>", "html.parser")
+    soup = BeautifulSoup(
+        '<html><body><span class="show-country-name">USA</span></body></html>',
+        "html.parser",
+    )
 
     assert transform.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (True, None)
 
 
 def test_evaluate_listing_eligibility_uses_listing_id_when_title_has_no_year():
-    soup = BeautifulSoup("<html><body></body></html>", "html.parser")
+    soup = BeautifulSoup(
+        '<html><body><span class="show-country-name">USA</span></body></html>',
+        "html.parser",
+    )
 
     assert transform.evaluate_listing_eligibility(soup, "2010-am-general-hmmwv-military-5") == (
         True,
@@ -803,6 +841,7 @@ def test_evaluate_listing_eligibility_does_not_reject_empty_category():
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/category/">
                     <strong class="group-title-label">Category</strong>
                 </a>
@@ -820,6 +859,7 @@ def test_evaluate_listing_eligibility_does_not_reject_non_excluded_category():
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/convertible/">
                     <strong class="group-title-label">Category</strong>
                     Convertibles
@@ -837,6 +877,7 @@ def test_evaluate_listing_eligibility_allows_multiple_non_excluded_categories():
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/convertible/">
                     <strong class="group-title-label">Category</strong>
                     Convertibles
@@ -859,6 +900,7 @@ def test_evaluate_listing_eligibility_keeps_truck_and_4x4_in_scope():
         """
         <html>
             <body>
+                <span class="show-country-name">USA</span>
                 <a class="group-link" href="/truck-4x4/">
                     <strong class="group-title-label">Category</strong>
                     Truck & 4x4

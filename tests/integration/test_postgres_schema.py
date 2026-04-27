@@ -219,7 +219,6 @@ def test_schema_sql_applies_in_isolated_postgres_container():
                   'url',
                   'title',
                   'auction_end_date',
-                  'source_location',
                   'eligible',
                   'eligibility_reason',
                   'discovered_at',
@@ -238,7 +237,6 @@ def test_schema_sql_applies_in_isolated_postgres_container():
             "ingested_at:timestamp with time zone:YES",
             "last_seen_at:timestamp with time zone:NO",
             "source_listing_id:text:NO",
-            "source_location:text:YES",
             "source_site:text:NO",
             "title:text:YES",
             "url:text:NO",
@@ -274,7 +272,6 @@ def test_schema_sql_applies_in_isolated_postgres_container():
                 RETURNING
                     title,
                     auction_end_date,
-                    source_location,
                     eligible,
                     eligibility_reason,
                     discovered_at,
@@ -284,7 +281,6 @@ def test_schema_sql_applies_in_isolated_postgres_container():
             SELECT
                 title IS NULL,
                 auction_end_date IS NULL,
-                source_location IS NULL,
                 eligible IS NULL,
                 eligibility_reason IS NULL,
                 discovered_at IS NOT NULL,
@@ -293,7 +289,7 @@ def test_schema_sql_applies_in_isolated_postgres_container():
             FROM inserted;
             """,
         )
-        assert discovered_defaults == ["t|t|t|t|t|t|t|t"]
+        assert discovered_defaults == ["t|t|t|t|t|t|t"]
 
         discovered_upsert = _psql(
             container_name,
@@ -310,28 +306,24 @@ def test_schema_sql_applies_in_isolated_postgres_container():
                     source_listing_id,
                     url,
                     title,
-                    auction_end_date,
-                    source_location
+                    auction_end_date
                 ) VALUES (
                     'bringatrailer',
                     'schema-discovery-test',
                     'https://bringatrailer.com/listing/schema-discovery-test-updated/',
                     'Updated title',
-                    '2026-03-30',
-                    'CAN'
+                    '2026-03-30'
                 )
                 ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
                     url = EXCLUDED.url,
                     title = EXCLUDED.title,
                     auction_end_date = EXCLUDED.auction_end_date,
-                    source_location = EXCLUDED.source_location,
                     last_seen_at = NOW()
                 RETURNING
                     id,
                     url,
                     title,
                     auction_end_date,
-                    source_location,
                     discovered_at,
                     last_seen_at,
                     eligible,
@@ -345,7 +337,6 @@ def test_schema_sql_applies_in_isolated_postgres_container():
                 url,
                 title,
                 auction_end_date,
-                source_location,
                 upserted.discovered_at = original.discovered_at,
                 upserted.last_seen_at >= original.discovered_at,
                 eligible IS NULL,
@@ -358,7 +349,7 @@ def test_schema_sql_applies_in_isolated_postgres_container():
         assert discovered_upsert == [
             (
                 "1|https://bringatrailer.com/listing/schema-discovery-test-updated/"
-                "|Updated title|2026-03-30|CAN|t|t|t|t|t"
+                "|Updated title|2026-03-30|t|t|t|t|t"
             )
         ]
     finally:

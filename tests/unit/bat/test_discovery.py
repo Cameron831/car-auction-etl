@@ -39,7 +39,6 @@ def test_normalize_completed_auction_candidate_maps_endpoint_item():
             "url": "https://bringatrailer.com/listing/test-listing/?utm_source=feed#comments",
             "title": " 2004 BMW M3 Coupe ",
             "timestamp_end": _timestamp("2026-04-20"),
-            "country_code": "USA",
         }
     )
 
@@ -50,7 +49,6 @@ def test_normalize_completed_auction_candidate_maps_endpoint_item():
         "url": "https://bringatrailer.com/listing/test-listing/",
         "title": "2004 BMW M3 Coupe",
         "auction_end_date": "2026-04-20",
-        "source_location": "USA",
     }
 
 
@@ -65,52 +63,6 @@ def test_normalize_completed_auction_candidate_allows_missing_optional_metadata(
         "source_listing_id": "test-listing",
         "url": "https://bringatrailer.com/listing/test-listing/",
     }
-
-
-def test_evaluate_discovery_eligibility_accepts_in_scope_us_car_listing_id():
-    assert discovery.evaluate_discovery_eligibility("2004-bmw-m3-coupe", "US") == (True, None)
-
-
-def test_evaluate_discovery_eligibility_rejects_missing_or_unparseable_year():
-    assert discovery.evaluate_discovery_eligibility("bmw-m3-coupe", "US") == (
-        False,
-        "listing ID year missing",
-    )
-
-
-def test_evaluate_discovery_eligibility_rejects_pre_1946_listing_id():
-    assert discovery.evaluate_discovery_eligibility("1941-ford-super-deluxe-coupe", "US") == (
-        False,
-        "year before 1946",
-    )
-
-
-def test_evaluate_discovery_eligibility_rejects_non_us_listing():
-    assert discovery.evaluate_discovery_eligibility("2004-bmw-m3-coupe", "CA") == (
-        False,
-        "listing outside US",
-    )
-
-
-@pytest.mark.parametrize(
-    "listing_id",
-    [
-        "2004-harley-davidson-motorcycle",
-        "1967-porsche-911-literature-collection",
-        "1989-polaris-atv",
-        "1967-ford-f-250-fire-truck",
-    ],
-)
-def test_evaluate_discovery_eligibility_keeps_valid_year_and_location_listing_ids_in_scope(listing_id):
-    assert discovery.evaluate_discovery_eligibility(listing_id, "US") == (True, None)
-
-
-def test_evaluate_discovery_eligibility_uses_listing_id_when_title_has_no_year():
-    assert discovery.evaluate_discovery_eligibility("2010-am-general-hmmwv-military-5", "US") == (
-        True,
-        None,
-    )
-
 
 def test_discover_completed_auctions_returns_summary_counts_across_pages(mocker):
     fetch_completed_auctions_page = mocker.patch(
@@ -213,7 +165,6 @@ def test_discover_completed_auctions_marks_missing_auction_end_date_as_failed(mo
             "url": "https://bringatrailer.com/listing/in-scope/",
             "title": "In Scope",
             "auction_end_date": "2026-04-20",
-            "source_location": "USA",
         }
     )
 
@@ -320,7 +271,6 @@ def test_build_discovered_listing_params_maps_candidate_to_schema_columns():
         "url": "https://bringatrailer.com/listing/test-listing/",
         "title": "2004 BMW M3 Coupe",
         "auction_end_date": "2026-03-30",
-        "source_location": "USA",
     }
 
 
@@ -338,7 +288,6 @@ def test_build_discovered_listing_params_allows_missing_visible_metadata():
         "url": "https://bringatrailer.com/listing/test-listing/",
         "title": None,
         "auction_end_date": None,
-        "source_location": None,
     }
 
 
@@ -389,7 +338,7 @@ def test_save_discovered_listing_executes_upsert_for_visible_metadata(mocker, ca
     assert "url = EXCLUDED.url" in sql
     assert "title = EXCLUDED.title" in sql
     assert "auction_end_date = EXCLUDED.auction_end_date" in sql
-    assert "source_location = EXCLUDED.source_location" in sql
+    assert "source_location" not in sql
     assert "last_seen_at = NOW()" in sql
     assert "eligible" not in sql
     assert "eligibility_reason" not in sql
@@ -401,7 +350,6 @@ def test_save_discovered_listing_executes_upsert_for_visible_metadata(mocker, ca
         "url": "https://bringatrailer.com/listing/test-listing/",
         "title": "2004 BMW M3 Coupe",
         "auction_end_date": "2026-03-30",
-        "source_location": "USA",
     }
     assert "Upserted BAT discovered listing for listing_id=test-listing" in caplog.text
     assert "postgresql://user:pass@localhost/db" not in caplog.text
@@ -424,7 +372,6 @@ def test_load_pending_discovered_listings_selects_pending_bat_rows_in_stable_ord
             "url": "https://bringatrailer.com/listing/first-listing/",
             "title": "First Listing",
             "auction_end_date": date(2026, 3, 30),
-            "source_location": "USA",
             "eligible": None,
             "eligibility_reason": None,
             "discovered_at": datetime(2026, 4, 20, 8, 0, tzinfo=timezone.utc),
@@ -620,16 +567,14 @@ def _candidate():
         "url": "https://bringatrailer.com/listing/test-listing/",
         "title": "2004 BMW M3 Coupe",
         "auction_end_date": "2026-03-30",
-        "source_location": "USA",
     }
 
 
-def _item(listing_id, auction_end_date, title=None, country_code="USA"):
+def _item(listing_id, auction_end_date, title=None):
     return {
         "url": f"https://bringatrailer.com/listing/{listing_id}/",
         "title": title or listing_id.replace("-", " ").title(),
         "timestamp_end": _timestamp(auction_end_date),
-        "country_code": country_code,
         "pages_total": 999,
     }
 
