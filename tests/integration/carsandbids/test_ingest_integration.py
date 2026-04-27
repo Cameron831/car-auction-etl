@@ -6,18 +6,18 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from app.sources.bat.ingest import save_listing_html
+from app.sources.carsandbids.ingest import save_listing_json
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCHEMA_PATH = REPO_ROOT / "app" / "db" / "schema.sql"
 
 
-def test_save_listing_html_upserts_raw_html_in_postgres_container(monkeypatch):
+def test_save_listing_json_upserts_raw_json_in_postgres_container(monkeypatch):
     if not _docker_daemon_available():
         pytest.skip("Docker daemon is not available")
 
-    container_name = f"auction-ingest-test-{uuid.uuid4().hex}"
+    container_name = f"auction-cnb-ingest-test-{uuid.uuid4().hex}"
     schema_mount = f"{SCHEMA_PATH}:/docker-entrypoint-initdb.d/001-schema.sql:ro"
 
     try:
@@ -52,56 +52,56 @@ def test_save_listing_html_upserts_raw_html_in_postgres_container(monkeypatch):
         monkeypatch.setenv("DATABASE_URL", database_url)
         _insert_discovered_listing(
             database_url,
-            "test-listing",
-            "https://example.test/first",
+            "test-auction",
+            "https://example.test/auctions/test-auction",
         )
 
-        save_listing_html(
-            "test-listing",
-            "<html>First</html>",
-            "https://example.test/first",
+        save_listing_json(
+            "test-auction",
+            {"id": "test-auction", "title": "First"},
+            "https://example.test/auctions/test-auction",
         )
         with psycopg.connect(database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    UPDATE raw_listing_html
+                    UPDATE raw_listing_json
                     SET processed = TRUE
                     WHERE source_site = %s AND source_listing_id = %s
                     """,
-                    ("bringatrailer", "test-listing"),
+                    ("carsandbids", "test-auction"),
                 )
 
-        save_listing_html(
-            "test-listing",
-            "<html>Second</html>",
-            "https://example.test/second",
+        save_listing_json(
+            "test-auction",
+            {"id": "test-auction", "title": "Second"},
+            "https://example.test/auctions/test-auction-updated",
         )
 
         with psycopg.connect(database_url) as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     """
-                    SELECT COUNT(*), MAX(url), MAX(raw_html), bool_or(processed)
-                    FROM raw_listing_html
+                    SELECT COUNT(*), MAX(url), MAX(raw_json->>'title'), bool_or(processed)
+                    FROM raw_listing_json
                     WHERE source_site = %s AND source_listing_id = %s
                     """,
-                    ("bringatrailer", "test-listing"),
+                    ("carsandbids", "test-auction"),
                 )
-                row_count, url, raw_html, processed = cur.fetchone()
+                row_count, url, title, processed = cur.fetchone()
                 cur.execute(
                     """
                     SELECT ingested_at IS NOT NULL, eligible, eligibility_reason
                     FROM discovered_listings
                     WHERE source_site = %s AND source_listing_id = %s
                     """,
-                    ("bringatrailer", "test-listing"),
+                    ("carsandbids", "test-auction"),
                 )
                 discovered_ingested, eligible, eligibility_reason = cur.fetchone()
 
         assert row_count == 1
-        assert url == "https://example.test/second"
-        assert raw_html == "<html>Second</html>"
+        assert url == "https://example.test/auctions/test-auction-updated"
+        assert title == "Second"
         assert processed is False
         assert discovered_ingested is True
         assert eligible is None
@@ -125,7 +125,7 @@ def _insert_discovered_listing(database_url, listing_id, url):
                     %s
                 )
                 """,
-                ("bringatrailer", listing_id, url),
+                ("carsandbids", listing_id, url),
             )
 
 

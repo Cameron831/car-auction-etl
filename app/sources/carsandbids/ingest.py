@@ -33,6 +33,13 @@ ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
     processed = FALSE
 """
 
+MARK_DISCOVERED_LISTING_INGESTED_SQL = """
+UPDATE discovered_listings
+SET ingested_at = NOW()
+WHERE source_site = %(source_site)s
+  AND source_listing_id = %(source_listing_id)s
+"""
+
 
 def build_listing_url(listing_id):
     return f"{LISTING_URL_BASE}/{listing_id}"
@@ -116,6 +123,7 @@ def save_listing_json(listing_id, payload, url=None):
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
             cur.execute(UPSERT_RAW_LISTING_JSON_SQL, params)
+            cur.execute(MARK_DISCOVERED_LISTING_INGESTED_SQL, params)
             logger.info(
                 "Saved Cars and Bids raw listing JSON for listing_id=%s", listing_id
             )
