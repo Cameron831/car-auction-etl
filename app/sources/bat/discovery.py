@@ -59,20 +59,10 @@ WHERE source_site = %(source_site)s
 ORDER BY discovered_at ASC, id ASC
 """
 
-MARK_DISCOVERED_LISTING_HANDLED_INELIGIBLE_SQL = """
+MARK_DISCOVERED_LISTING_HANDLED_SQL = """
 UPDATE discovered_listings
-SET ingested_at = NOW(),
-    eligible = FALSE,
+SET eligible = %(eligible)s,
     eligibility_reason = %(eligibility_reason)s
-WHERE source_site = %(source_site)s
-  AND source_listing_id = %(source_listing_id)s
-"""
-
-MARK_DISCOVERED_LISTING_HANDLED_ELIGIBLE_SQL = """
-UPDATE discovered_listings
-SET ingested_at = NOW(),
-    eligible = TRUE,
-    eligibility_reason = NULL
 WHERE source_site = %(source_site)s
   AND source_listing_id = %(source_listing_id)s
 """
@@ -240,29 +230,25 @@ def load_pending_discovered_listings(limit=None):
             return cur.fetchall()
 
 
-def mark_discovered_listing_handled_ineligible(listing_id, reason):
+def mark_discovered_listing_handled(listing_id, eligible, reason):
+    if eligible:
+        eligibility_reason = None
+    else:
+        if not reason or not str(reason).strip():
+            raise ValueError("reason is required when eligible is false")
+        eligibility_reason = reason
+
     database_url = _get_database_url()
     params = {
         "source_site": SOURCE_SITE,
         "source_listing_id": listing_id,
-        "eligibility_reason": reason,
+        "eligible": eligible,
+        "eligibility_reason": eligibility_reason,
     }
 
     with psycopg.connect(database_url) as conn:
         with conn.cursor() as cur:
-            cur.execute(MARK_DISCOVERED_LISTING_HANDLED_INELIGIBLE_SQL, params)
-
-
-def mark_discovered_listing_handled_eligible(listing_id):
-    database_url = _get_database_url()
-    params = {
-        "source_site": SOURCE_SITE,
-        "source_listing_id": listing_id,
-    }
-
-    with psycopg.connect(database_url) as conn:
-        with conn.cursor() as cur:
-            cur.execute(MARK_DISCOVERED_LISTING_HANDLED_ELIGIBLE_SQL, params)
+            cur.execute(MARK_DISCOVERED_LISTING_HANDLED_SQL, params)
 
 
 def build_discovered_listing_params(candidate):
