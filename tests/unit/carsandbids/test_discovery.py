@@ -5,6 +5,7 @@ from datetime import date
 import pytest
 
 from app.sources.carsandbids import discovery
+from app.sources.carsandbids.browser import CARSANDBIDS_CHROME_USER_AGENT
 
 
 def test_normalize_completed_auction_candidate_maps_endpoint_auction():
@@ -84,8 +85,33 @@ def test_capture_initial_completed_auctions_page_captures_signed_response(
         ("https://carsandbids.com/past-auctions/", "domcontentloaded", 60000)
     ]
     assert playwright.chromium.launch_calls == [{"headless": True}]
+    assert playwright.chromium.browser.new_context_calls == [
+        {"user_agent": CARSANDBIDS_CHROME_USER_AGENT}
+    ]
+    assert playwright.chromium.browser.context.new_page_calls == 1
     assert "Capturing initial Cars and Bids completed auctions page" in caplog.text
     assert "Captured initial Cars and Bids completed auctions page" in caplog.text
+
+
+def test_capture_initial_completed_auctions_page_preserves_headed_launch(mocker):
+    response = FakeResponse(
+        "https://carsandbids.com/v2/autos/auctions?status=closed"
+        "&timestamp=ts&signature=sig",
+        payload={"auctions": []},
+    )
+    page = FakePage([response])
+    playwright = FakePlaywright(page)
+    mocker.patch.object(
+        discovery, "sync_playwright", return_value=FakePlaywrightContext(playwright)
+    )
+
+    discovery.capture_initial_completed_auctions_page(headless=False)
+
+    assert playwright.chromium.launch_calls == [{"headless": False}]
+    assert playwright.chromium.browser.new_context_calls == [
+        {"user_agent": CARSANDBIDS_CHROME_USER_AGENT}
+    ]
+    assert playwright.chromium.browser.context.new_page_calls == 1
 
 
 def test_capture_initial_completed_auctions_page_waits_for_late_matching_response(
@@ -97,10 +123,11 @@ def test_capture_initial_completed_auctions_page_waits_for_late_matching_respons
         payload={"auctions": []},
     )
     page = FakePage([], wait_response=matching_response)
+    playwright = FakePlaywright(page)
     mocker.patch.object(
         discovery,
         "sync_playwright",
-        return_value=FakePlaywrightContext(FakePlaywright(page)),
+        return_value=FakePlaywrightContext(playwright),
     )
 
     payload, timestamp, signature = discovery.capture_initial_completed_auctions_page()
@@ -122,10 +149,11 @@ def test_capture_initial_completed_auctions_page_raises_when_response_is_absent(
             )
         ]
     )
+    playwright = FakePlaywright(page)
     mocker.patch.object(
         discovery,
         "sync_playwright",
-        return_value=FakePlaywrightContext(FakePlaywright(page)),
+        return_value=FakePlaywrightContext(playwright),
     )
 
     with pytest.raises(RuntimeError, match="API response not found"):
@@ -303,10 +331,11 @@ def test_discover_completed_auctions_uses_page_fetch_for_followups(mocker):
         ],
         evaluate_responses=[{"ok": True, "status": 200, "text": _json({"auctions": []})}],
     )
+    playwright = FakePlaywright(page)
     mocker.patch.object(
         discovery,
         "sync_playwright",
-        return_value=FakePlaywrightContext(FakePlaywright(page)),
+        return_value=FakePlaywrightContext(playwright),
     )
     mocker.patch(
         "app.sources.carsandbids.discovery.save_discovered_listing",
@@ -315,6 +344,11 @@ def test_discover_completed_auctions_uses_page_fetch_for_followups(mocker):
 
     discovery.discover_completed_auctions(scrape_date="2026-04-20")
 
+    assert playwright.chromium.launch_calls == [{"headless": True}]
+    assert playwright.chromium.browser.new_context_calls == [
+        {"user_agent": CARSANDBIDS_CHROME_USER_AGENT}
+    ]
+    assert playwright.chromium.browser.context.new_page_calls == 1
     assert page.evaluate_call_args == [
         {
             "url": "https://carsandbids.com/v2/autos/auctions",
@@ -914,13 +948,26 @@ class FakePage:
 class FakeBrowser:
     def __init__(self, page):
         self.page = page
+        self.context = FakeBrowserContext(page)
+        self.new_context_calls = []
         self.closed = False
 
-    def new_page(self):
-        return self.page
+    def new_context(self, user_agent):
+        self.new_context_calls.append({"user_agent": user_agent})
+        return self.context
 
     def close(self):
         self.closed = True
+
+
+class FakeBrowserContext:
+    def __init__(self, page):
+        self.page = page
+        self.new_page_calls = 0
+
+    def new_page(self):
+        self.new_page_calls += 1
+        return self.page
 
 
 class FakeChromium:

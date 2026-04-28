@@ -6,6 +6,7 @@ import pytest
 from psycopg.types.json import Jsonb
 
 from app.sources.carsandbids import ingest
+from app.sources.carsandbids.browser import CARSANDBIDS_CHROME_USER_AGENT
 from app.sources.carsandbids.ingest import (
     build_listing_url,
     evaluate_listing_eligibility,
@@ -170,6 +171,10 @@ def test_fetch_listing_json_captures_matching_response(mocker, caplog):
         ("https://carsandbids.com/auctions/test-auction", "domcontentloaded", 60000)
     ]
     assert playwright.chromium.launch_calls == [{"headless": True}]
+    assert playwright.chromium.browser.new_context_calls == [
+        {"user_agent": CARSANDBIDS_CHROME_USER_AGENT}
+    ]
+    assert playwright.chromium.browser.context.new_page_calls == 1
     assert (
         "Fetching Cars and Bids listing JSON for listing_id=test-auction"
         in caplog.text
@@ -360,13 +365,26 @@ class FakePage:
 class FakeBrowser:
     def __init__(self, page):
         self.page = page
+        self.context = FakeBrowserContext(page)
+        self.new_context_calls = []
         self.closed = False
 
-    def new_page(self):
-        return self.page
+    def new_context(self, user_agent):
+        self.new_context_calls.append({"user_agent": user_agent})
+        return self.context
 
     def close(self):
         self.closed = True
+
+
+class FakeBrowserContext:
+    def __init__(self, page):
+        self.page = page
+        self.new_page_calls = 0
+
+    def new_page(self):
+        self.new_page_calls += 1
+        return self.page
 
 
 class FakeChromium:
