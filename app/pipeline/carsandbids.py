@@ -1,6 +1,9 @@
 import logging
 from dataclasses import dataclass
 
+from playwright.sync_api import sync_playwright
+
+from app.sources.carsandbids.browser import launch_carsandbids_browser_context
 from app.sources.carsandbids.discovery import (
     discover_completed_auctions,
     load_pending_discovered_listings,
@@ -9,6 +12,7 @@ from app.sources.carsandbids.discovery import (
 from app.sources.carsandbids.ingest import (
     evaluate_listing_eligibility,
     fetch_listing_json,
+    fetch_listing_json_with_context,
     save_listing_json,
 )
 from app.sources.carsandbids.load import load_listing
@@ -72,37 +76,46 @@ def ingest_discovered_listings(batch_size=None):
     summary = BatchIngestSummary()
     pending_rows = load_pending_discovered_listings(limit=batch_size)
 
-    for row in pending_rows:
-        summary.selected += 1
-        listing_id = row["source_listing_id"]
+    if not pending_rows:
+        return summary
 
-        summary.scrape_attempted += 1
+    with sync_playwright() as playwright:
+        browser, context = launch_carsandbids_browser_context(playwright, headless=True)
         try:
-            payload = fetch_listing_json(listing_id)
-        except Exception as exc:
-            summary.scrape_failed += 1
-            logger.error(
-                "carsandbids ingest-discovered scrape failed for listing_id=%s error=%s",
-                listing_id,
-                exc,
-            )
-            continue
+            for row in pending_rows:
+                summary.selected += 1
+                listing_id = row["source_listing_id"]
 
-        eligible, reason = evaluate_listing_eligibility(payload)
-        mark_discovered_listing_handled(listing_id, eligible, reason)
-        if not eligible:
-            logger.info(
-                "carsandbids ingest-discovered listing rejected for listing_id=%s "
-                "reason=%s",
-                listing_id,
-                reason,
-            )
-            summary.rejected += 1
-            continue
+                summary.scrape_attempted += 1
+                try:
+                    payload = fetch_listing_json_with_context(listing_id, context)
+                except Exception as exc:
+                    summary.scrape_failed += 1
+                    logger.error(
+                        "carsandbids ingest-discovered scrape failed "
+                        "for listing_id=%s error=%s",
+                        listing_id,
+                        exc,
+                    )
+                    continue
 
-        save_listing_json(listing_id, payload, url=row["url"])
-        summary.raw_json_stored += 1
-        summary.accepted += 1
+                eligible, reason = evaluate_listing_eligibility(payload)
+                mark_discovered_listing_handled(listing_id, eligible, reason)
+                if not eligible:
+                    logger.info(
+                        "carsandbids ingest-discovered listing rejected "
+                        "for listing_id=%s reason=%s",
+                        listing_id,
+                        reason,
+                    )
+                    summary.rejected += 1
+                    continue
+
+                save_listing_json(listing_id, payload, url=row["url"])
+                summary.raw_json_stored += 1
+                summary.accepted += 1
+        finally:
+            browser.close()
 
     return summary
 

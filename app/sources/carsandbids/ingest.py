@@ -50,7 +50,7 @@ def build_listing_url(listing_id):
     return f"{LISTING_URL_BASE}/{listing_id}"
 
 
-def fetch_listing_json(listing_id):
+def _fetch_listing_json_with_page(listing_id, page):
     listing_url = build_listing_url(listing_id)
     api_url_prefix = f"{API_AUCTION_URL_BASE}/{listing_id}"
     matched_response = None
@@ -63,50 +63,61 @@ def fetch_listing_json(listing_id):
         if matched_response is None and is_matching_response(response):
             matched_response = response
 
-    logger.info("Fetching Cars and Bids listing JSON for listing_id=%s", listing_id)
-    with sync_playwright() as playwright:
-        browser, context = launch_carsandbids_browser_context(playwright, headless=True)
+    page.on("response", capture_matching_response)
+    page.goto(
+        listing_url,
+        wait_until="domcontentloaded",
+        timeout=PAGE_LOAD_TIMEOUT_MS,
+    )
+    if matched_response is None:
         try:
-            page = context.new_page()
-            page.on("response", capture_matching_response)
-            page.goto(
-                listing_url,
-                wait_until="domcontentloaded",
-                timeout=PAGE_LOAD_TIMEOUT_MS,
+            matched_response = page.wait_for_event(
+                "response",
+                predicate=is_matching_response,
+                timeout=API_RESPONSE_TIMEOUT_MS,
             )
-            if matched_response is None:
-                try:
-                    matched_response = page.wait_for_event(
-                        "response",
-                        predicate=is_matching_response,
-                        timeout=API_RESPONSE_TIMEOUT_MS,
-                    )
-                except Exception as exc:
-                    raise RuntimeError(
-                        "Cars and Bids API response not found "
-                        f"for listing_id={listing_id}"
-                    ) from exc
+        except Exception as exc:
+            raise RuntimeError(
+                "Cars and Bids API response not found "
+                f"for listing_id={listing_id}"
+            ) from exc
 
-            if matched_response is None:
-                raise RuntimeError(
-                    f"Cars and Bids API response not found for listing_id={listing_id}"
-                )
-            if not matched_response.ok:
-                raise RuntimeError(
-                    "Cars and Bids API response failed "
-                    f"for listing_id={listing_id} status={matched_response.status}"
-                )
-            try:
-                payload = matched_response.json()
-            except Exception as exc:
-                raise RuntimeError(
-                    f"Invalid Cars and Bids API JSON for listing_id={listing_id}"
-                ) from exc
-        finally:
-            browser.close()
+    if matched_response is None:
+        raise RuntimeError(
+            f"Cars and Bids API response not found for listing_id={listing_id}"
+        )
+    if not matched_response.ok:
+        raise RuntimeError(
+            "Cars and Bids API response failed "
+            f"for listing_id={listing_id} status={matched_response.status}"
+        )
+    try:
+        payload = matched_response.json()
+    except Exception as exc:
+        raise RuntimeError(
+            f"Invalid Cars and Bids API JSON for listing_id={listing_id}"
+        ) from exc
 
     logger.info("Fetched Cars and Bids listing JSON for listing_id=%s", listing_id)
     return payload
+
+
+def fetch_listing_json_with_context(listing_id, context):
+    logger.info("Fetching Cars and Bids listing JSON for listing_id=%s", listing_id)
+    page = context.new_page()
+    try:
+        return _fetch_listing_json_with_page(listing_id, page)
+    finally:
+        page.close()
+
+
+def fetch_listing_json(listing_id):
+    with sync_playwright() as playwright:
+        browser, context = launch_carsandbids_browser_context(playwright, headless=True)
+        try:
+            return fetch_listing_json_with_context(listing_id, context)
+        finally:
+            browser.close()
 
 
 def evaluate_listing_eligibility(payload):

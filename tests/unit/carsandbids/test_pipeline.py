@@ -4,6 +4,24 @@ from datetime import date
 from app.pipeline import carsandbids
 
 
+def _patch_batch_browser(mocker):
+    fake_playwright = object()
+    fake_browser = mocker.Mock()
+    fake_context = mocker.Mock(name="carsandbids_context")
+    playwright_manager = mocker.MagicMock()
+    playwright_manager.__enter__.return_value = fake_playwright
+    playwright_manager.__exit__.return_value = False
+    sync_playwright = mocker.patch(
+        "app.pipeline.carsandbids.sync_playwright",
+        return_value=playwright_manager,
+    )
+    launch_context = mocker.patch(
+        "app.pipeline.carsandbids.launch_carsandbids_browser_context",
+        return_value=(fake_browser, fake_context),
+    )
+    return fake_playwright, fake_browser, fake_context, sync_playwright, launch_context
+
+
 def test_ingest_listing_fetches_and_saves_listing_json(mocker):
     payload = {"listing": {"year": 2004}}
     fetch_listing_json = mocker.patch(
@@ -141,10 +159,16 @@ def test_ingest_discovered_listings_returns_zeroed_summary_for_empty_batch(mocke
         "app.pipeline.carsandbids.load_pending_discovered_listings",
         return_value=[],
     )
+    sync_playwright = mocker.patch("app.pipeline.carsandbids.sync_playwright")
+    launch_context = mocker.patch(
+        "app.pipeline.carsandbids.launch_carsandbids_browser_context"
+    )
 
     summary = carsandbids.ingest_discovered_listings()
 
     assert summary == carsandbids.BatchIngestSummary()
+    sync_playwright.assert_not_called()
+    launch_context.assert_not_called()
 
 
 def test_transform_discovered_listings_returns_zeroed_summary_for_empty_batch(mocker):
@@ -160,6 +184,9 @@ def test_transform_discovered_listings_returns_zeroed_summary_for_empty_batch(mo
 
 def test_ingest_discovered_listings_marks_reject_without_saving_json(mocker, caplog):
     payload = {"listing": {"year": 1940}}
+    fake_playwright, fake_browser, fake_context, _, launch_context = (
+        _patch_batch_browser(mocker)
+    )
     mocker.patch(
         "app.pipeline.carsandbids.load_pending_discovered_listings",
         return_value=[
@@ -170,7 +197,10 @@ def test_ingest_discovered_listings_marks_reject_without_saving_json(mocker, cap
             }
         ],
     )
-    mocker.patch("app.pipeline.carsandbids.fetch_listing_json", return_value=payload)
+    fetch_listing_json_with_context = mocker.patch(
+        "app.pipeline.carsandbids.fetch_listing_json_with_context",
+        return_value=payload,
+    )
     evaluate_listing_eligibility = mocker.patch(
         "app.pipeline.carsandbids.evaluate_listing_eligibility",
         return_value=(False, "year before 1946"),
@@ -183,6 +213,9 @@ def test_ingest_discovered_listings_marks_reject_without_saving_json(mocker, cap
     caplog.set_level(logging.INFO)
     summary = carsandbids.ingest_discovered_listings()
 
+    launch_context.assert_called_once_with(fake_playwright, headless=True)
+    fetch_listing_json_with_context.assert_called_once_with("rejected", fake_context)
+    fake_browser.close.assert_called_once_with()
     evaluate_listing_eligibility.assert_called_once_with(payload)
     mark_handled.assert_called_once_with("rejected", False, "year before 1946")
     save_listing_json.assert_not_called()
@@ -198,6 +231,7 @@ def test_ingest_discovered_listings_marks_reject_without_saving_json(mocker, cap
 
 
 def test_ingest_discovered_listings_records_scrape_failure_without_marking_row(mocker):
+    _, fake_browser, fake_context, _, _ = _patch_batch_browser(mocker)
     mocker.patch(
         "app.pipeline.carsandbids.load_pending_discovered_listings",
         return_value=[
@@ -208,8 +242,8 @@ def test_ingest_discovered_listings_records_scrape_failure_without_marking_row(m
             }
         ],
     )
-    mocker.patch(
-        "app.pipeline.carsandbids.fetch_listing_json",
+    fetch_listing_json_with_context = mocker.patch(
+        "app.pipeline.carsandbids.fetch_listing_json_with_context",
         side_effect=RuntimeError("network failed"),
     )
     mark_handled = mocker.patch(
@@ -218,6 +252,8 @@ def test_ingest_discovered_listings_records_scrape_failure_without_marking_row(m
 
     summary = carsandbids.ingest_discovered_listings()
 
+    fetch_listing_json_with_context.assert_called_once_with("scrape-fail", fake_context)
+    fake_browser.close.assert_called_once_with()
     mark_handled.assert_not_called()
     assert summary == carsandbids.BatchIngestSummary(
         selected=1,
@@ -228,6 +264,7 @@ def test_ingest_discovered_listings_records_scrape_failure_without_marking_row(m
 
 def test_ingest_discovered_listings_saves_json_and_marks_eligible_for_pass(mocker):
     payload = {"listing": {"year": 2004}}
+    _, fake_browser, fake_context, _, _ = _patch_batch_browser(mocker)
     mocker.patch(
         "app.pipeline.carsandbids.load_pending_discovered_listings",
         return_value=[
@@ -238,7 +275,10 @@ def test_ingest_discovered_listings_saves_json_and_marks_eligible_for_pass(mocke
             }
         ],
     )
-    mocker.patch("app.pipeline.carsandbids.fetch_listing_json", return_value=payload)
+    fetch_listing_json_with_context = mocker.patch(
+        "app.pipeline.carsandbids.fetch_listing_json_with_context",
+        return_value=payload,
+    )
     mocker.patch(
         "app.pipeline.carsandbids.evaluate_listing_eligibility",
         return_value=(True, None),
@@ -253,6 +293,8 @@ def test_ingest_discovered_listings_saves_json_and_marks_eligible_for_pass(mocke
 
     summary = carsandbids.ingest_discovered_listings()
 
+    fetch_listing_json_with_context.assert_called_once_with("accepted", fake_context)
+    fake_browser.close.assert_called_once_with()
     save_listing_json.assert_called_once_with(
         "accepted",
         payload,
@@ -277,6 +319,7 @@ def test_ingest_discovered_listings_saves_json_and_marks_eligible_for_pass(mocke
 
 def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):
     accepted_payload = {"listing": {"year": 2004}}
+    _, fake_browser, fake_context, _, launch_context = _patch_batch_browser(mocker)
     mocker.patch(
         "app.pipeline.carsandbids.load_pending_discovered_listings",
         return_value=[
@@ -302,8 +345,8 @@ def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):
             },
         ],
     )
-    mocker.patch(
-        "app.pipeline.carsandbids.fetch_listing_json",
+    fetch_listing_json_with_context = mocker.patch(
+        "app.pipeline.carsandbids.fetch_listing_json_with_context",
         side_effect=[
             {"listing": {"year": 1940}},
             RuntimeError("network failed"),
@@ -329,6 +372,14 @@ def test_ingest_discovered_listings_handles_mixed_batch_outcomes(mocker):
 
     summary = carsandbids.ingest_discovered_listings()
 
+    launch_context.assert_called_once()
+    assert fetch_listing_json_with_context.call_args_list == [
+        mocker.call("year-reject", fake_context),
+        mocker.call("scrape-fail", fake_context),
+        mocker.call("model-reject", fake_context),
+        mocker.call("accepted", fake_context),
+    ]
+    fake_browser.close.assert_called_once_with()
     assert summary == carsandbids.BatchIngestSummary(
         selected=4,
         scrape_attempted=4,

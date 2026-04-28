@@ -11,6 +11,7 @@ from app.sources.carsandbids.ingest import (
     build_listing_url,
     evaluate_listing_eligibility,
     fetch_listing_json,
+    fetch_listing_json_with_context,
     save_listing_json,
 )
 
@@ -175,12 +176,32 @@ def test_fetch_listing_json_captures_matching_response(mocker, caplog):
         {"user_agent": CARSANDBIDS_CHROME_USER_AGENT}
     ]
     assert playwright.chromium.browser.context.new_page_calls == 1
+    assert page.closed is True
     assert (
         "Fetching Cars and Bids listing JSON for listing_id=test-auction"
         in caplog.text
     )
     assert "Fetched Cars and Bids listing JSON for listing_id=test-auction" in caplog.text
     assert "Test Listing" not in caplog.text
+
+
+def test_fetch_listing_json_with_context_uses_existing_context_and_closes_page():
+    payload = {"id": "test-auction", "title": "Test Listing"}
+    response = FakeResponse(
+        "https://carsandbids.com/v2/autos/auctions/test-auction?include=seller",
+        payload=payload,
+    )
+    page = FakePage([response])
+    context = FakeBrowserContext(page)
+
+    result = fetch_listing_json_with_context("test-auction", context)
+
+    assert result == payload
+    assert context.new_page_calls == 1
+    assert page.goto_calls == [
+        ("https://carsandbids.com/auctions/test-auction", "domcontentloaded", 60000)
+    ]
+    assert page.closed is True
 
 
 def test_fetch_listing_json_raises_when_matching_response_is_absent(mocker):
@@ -343,6 +364,7 @@ class FakePage:
         self.responses = responses
         self.response_handler = None
         self.goto_calls = []
+        self.closed = False
 
     def on(self, event_name, handler):
         assert event_name == "response"
@@ -360,6 +382,9 @@ class FakePage:
             if predicate(response):
                 return response
         raise TimeoutError("response not found")
+
+    def close(self):
+        self.closed = True
 
 
 class FakeBrowser:
