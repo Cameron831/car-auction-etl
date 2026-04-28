@@ -42,8 +42,15 @@ class BatchTransformSummary:
 
 def ingest_listing(listing_id):
     html = fetch_listing_html(listing_id)
+    soup = BeautifulSoup(html, "html.parser")
+    eligible, reason = evaluate_listing_eligibility(soup, listing_id)
+    mark_discovered_listing_handled(listing_id, eligible, reason)
+    
+    if not eligible:
+        return False
+    
     save_listing_html(listing_id, html)
-
+    return True
 
 def transform_listing(listing_id):
     transformed_listing = transform_listing_html(listing_id)
@@ -51,7 +58,8 @@ def transform_listing(listing_id):
 
 
 def run_listing(listing_id):
-    ingest_listing(listing_id)
+    if not ingest_listing(listing_id):
+        return
     transform_listing(listing_id)
 
 

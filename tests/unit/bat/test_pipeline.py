@@ -10,10 +10,22 @@ def test_ingest_listing_fetches_and_saves_listing_html(mocker):
         return_value="<html>Test</html>",
     )
     save_listing_html = mocker.patch("app.pipeline.bat.save_listing_html")
+    evaluate_listing_eligibility = mocker.patch(
+        "app.pipeline.bat.evaluate_listing_eligibility",
+        return_value=(True, None),
+    )
+    mark_discovered_listing_handled = mocker.patch(
+        "app.pipeline.bat.mark_discovered_listing_handled"
+    )
 
     bat.ingest_listing("test-id")
 
     fetch_listing_html.assert_called_once_with("test-id")
+    evaluate_listing_eligibility.assert_called_once()
+    soup, listing_id = evaluate_listing_eligibility.call_args.args
+    assert soup.get_text() == "Test"
+    assert listing_id == "test-id"
+    mark_discovered_listing_handled.assert_called_once_with("test-id", True, None)
     save_listing_html.assert_called_once_with("test-id", "<html>Test</html>")
 
 
@@ -44,6 +56,17 @@ def test_run_listing_executes_ingest_transform_load_in_order(mocker):
         side_effect=lambda listing_id, html: calls.append(("save", listing_id, html)),
     )
     mocker.patch(
+        "app.pipeline.bat.evaluate_listing_eligibility",
+        side_effect=lambda soup, listing_id: calls.append(("evaluate", soup.get_text(), listing_id))
+        or (True, None),
+    )
+    mocker.patch(
+        "app.pipeline.bat.mark_discovered_listing_handled",
+        side_effect=lambda listing_id, eligible, reason: calls.append(
+            ("mark_handled", listing_id, eligible, reason)
+        ),
+    )
+    mocker.patch(
         "app.pipeline.bat.transform_listing_html",
         side_effect=lambda listing_id: calls.append(("transform", listing_id)) or transformed_listing,
     )
@@ -56,6 +79,8 @@ def test_run_listing_executes_ingest_transform_load_in_order(mocker):
 
     assert calls == [
         ("fetch", "test-id"),
+        ("evaluate", "Test", "test-id"),
+        ("mark_handled", "test-id", True, None),
         ("save", "test-id", "<html>Test</html>"),
         ("transform", "test-id"),
         ("load", transformed_listing),
