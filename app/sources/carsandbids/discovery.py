@@ -8,6 +8,8 @@ import psycopg
 from playwright.sync_api import sync_playwright
 from psycopg.rows import dict_row
 
+from app.sources.carsandbids.browser import launch_carsandbids_browser_context
+
 
 SOURCE_SITE = "carsandbids"
 PAST_AUCTIONS_URL = "https://carsandbids.com/past-auctions/"
@@ -81,9 +83,9 @@ class DiscoverySummary:
 def capture_initial_completed_auctions_page(headless=True):
     logger.info("Capturing initial Cars and Bids completed auctions page")
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=headless)
+        browser, context = launch_carsandbids_browser_context(playwright, headless)
         try:
-            page = browser.new_page()
+            page = context.new_page()
             payload, timestamp, signature = _capture_initial_completed_auctions_page(
                 page
             )
@@ -200,9 +202,9 @@ def discover_completed_auctions(scrape_date, max_candidates=None, headless=True)
     summary = DiscoverySummary()
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=headless)
+        browser, context = launch_carsandbids_browser_context(playwright, headless)
         try:
-            page = browser.new_page()
+            page = context.new_page()
             payload, timestamp, signature = _capture_initial_completed_auctions_page(
                 page
             )

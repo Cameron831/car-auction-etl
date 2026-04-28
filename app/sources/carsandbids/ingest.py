@@ -5,6 +5,8 @@ import psycopg
 from playwright.sync_api import sync_playwright
 from psycopg.types.json import Jsonb
 
+from app.sources.carsandbids.browser import launch_carsandbids_browser_context
+
 
 SOURCE_SITE = "carsandbids"
 LISTING_URL_BASE = "https://carsandbids.com/auctions"
@@ -63,9 +65,9 @@ def fetch_listing_json(listing_id):
 
     logger.info("Fetching Cars and Bids listing JSON for listing_id=%s", listing_id)
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser, context = launch_carsandbids_browser_context(playwright, headless=True)
         try:
-            page = browser.new_page()
+            page = context.new_page()
             page.on("response", capture_matching_response)
             page.goto(
                 listing_url,
