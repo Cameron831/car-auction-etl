@@ -6,7 +6,7 @@ from pathlib import Path
 import psycopg
 import pytest
 
-from app.sources.bat import cli
+from app.pipeline import bat
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -98,8 +98,8 @@ def test_transform_discovered_processes_successes_retains_failures_and_respects_
         monkeypatch.setenv("DATABASE_URL", database_url)
         _insert_raw_listing_rows(database_url)
 
-        first_summary = cli.transform_discovered_listings(batch_size=2)
-        assert first_summary == cli.BatchTransformSummary(
+        first_summary = bat.transform_discovered_listings(batch_size=2)
+        assert first_summary == bat.BatchTransformSummary(
             selected=2,
             transformed_and_loaded=1,
             transform_failed=1,
@@ -113,8 +113,8 @@ def test_transform_discovered_processes_successes_retains_failures_and_respects_
         ]
         assert _listing_ids(database_url) == ["2004-first-success"]
 
-        second_summary = cli.transform_discovered_listings()
-        assert second_summary == cli.BatchTransformSummary(
+        second_summary = bat.transform_discovered_listings()
+        assert second_summary == bat.BatchTransformSummary(
             selected=2,
             transformed_and_loaded=1,
             transform_failed=1,
