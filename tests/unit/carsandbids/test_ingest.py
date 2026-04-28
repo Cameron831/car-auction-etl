@@ -1,4 +1,6 @@
+import json
 import logging
+from pathlib import Path
 
 import pytest
 from psycopg.types.json import Jsonb
@@ -6,9 +8,25 @@ from psycopg.types.json import Jsonb
 from app.sources.carsandbids import ingest
 from app.sources.carsandbids.ingest import (
     build_listing_url,
+    evaluate_listing_eligibility,
     fetch_listing_json,
     save_listing_json,
 )
+
+
+def _eligible_payload(status="sold", listing=None):
+    payload = {
+        "status": status,
+        "listing": {
+            "year": 2013,
+            "make": "Porsche",
+            "model": "911",
+            "is_not_car": False,
+        },
+    }
+    if listing:
+        payload["listing"].update(listing)
+    return payload
 
 
 def test_build_listing_url_returns_public_auction_url():
@@ -16,6 +34,120 @@ def test_build_listing_url_returns_public_auction_url():
         build_listing_url("test-auction")
         == "https://carsandbids.com/auctions/test-auction"
     )
+
+
+def test_evaluate_listing_eligibility_accepts_fixture_payload():
+    payload = json.loads(
+        Path("tests/fixtures/carsandbids_listing.json").read_text(encoding="utf-8")
+    )
+
+    assert evaluate_listing_eligibility(payload) == (True, None)
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_reason"),
+    [
+        (
+            _eligible_payload(listing={"is_not_car": True}),
+            "listing marked not car",
+        ),
+        (_eligible_payload(listing={"model": "Kart"}), "excluded model: Kart"),
+        (
+            _eligible_payload(listing={"make": "Military Vehicle"}),
+            "excluded make: Military Vehicle",
+        ),
+        (_eligible_payload(status="canceled"), "listing canceled"),
+        (_eligible_payload(listing={"year": None}), "listing year missing"),
+        (_eligible_payload(listing={"year": "unknown"}), "listing year missing"),
+        (_eligible_payload(listing={"year": 1945}), "year before 1946"),
+    ],
+)
+def test_evaluate_listing_eligibility_rejects_ineligible_payloads(
+    payload, expected_reason
+):
+    assert evaluate_listing_eligibility(payload) == (False, expected_reason)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "field_value", "expected_reason"),
+    [
+        ("model", "  GOLF   CART  ", "excluded model:   GOLF   CART  "),
+        ("make", "  OTHER  ", "excluded make:   OTHER  "),
+        ("status", "  CANCELED  ", "listing canceled"),
+    ],
+)
+def test_evaluate_listing_eligibility_normalizes_exact_excluded_values(
+    field_name, field_value, expected_reason
+):
+    if field_name == "status":
+        payload = _eligible_payload(status=field_value)
+    else:
+        payload = _eligible_payload(listing={field_name: field_value})
+
+    assert evaluate_listing_eligibility(payload) == (False, expected_reason)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    [
+        ("model", "customized"),
+        ("model", "golf cart trailer"),
+        ("make", "other manufacturer"),
+        ("make", "military vehicle parts"),
+    ],
+)
+def test_evaluate_listing_eligibility_allows_partial_excluded_values(
+    field_name, field_value
+):
+    payload = _eligible_payload(listing={field_name: field_value})
+
+    assert evaluate_listing_eligibility(payload) == (True, None)
+
+
+def test_evaluate_listing_eligibility_applies_rejection_order():
+    payload = _eligible_payload(
+        status="canceled",
+        listing={
+            "is_not_car": True,
+            "model": "Kart",
+            "make": "Other",
+            "year": 1945,
+        },
+    )
+
+    assert evaluate_listing_eligibility(payload) == (False, "listing marked not car")
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_reason"),
+    [
+        (
+            _eligible_payload(listing={"model": "Replica", "make": "Other"}),
+            "excluded model: Replica",
+        ),
+        (
+            _eligible_payload(
+                status="canceled",
+                listing={"make": "Other", "year": 1945},
+            ),
+            "excluded make: Other",
+        ),
+        (
+            _eligible_payload(status="canceled", listing={"year": "unknown"}),
+            "listing canceled",
+        ),
+    ],
+)
+def test_evaluate_listing_eligibility_applies_adjacent_rejection_order(
+    payload, expected_reason
+):
+    assert evaluate_listing_eligibility(payload) == (False, expected_reason)
+
+
+def test_evaluate_listing_eligibility_allows_truthy_non_boolean_is_not_car():
+    payload = _eligible_payload(listing={"is_not_car": "true"})
+
+    assert evaluate_listing_eligibility(payload) == (True, None)
 
 
 def test_fetch_listing_json_captures_matching_response(mocker, caplog):
@@ -167,6 +299,8 @@ def test_save_listing_json_executes_upsert_with_expected_conflict_target(
     assert upsert_params["source_site"] == "carsandbids"
     assert upsert_params["source_listing_id"] == "test-auction"
     assert upsert_params["url"] == "https://example.test/auctions/test-auction"
+    assert "eligible" not in upsert_params
+    assert "eligibility_reason" not in upsert_params
     assert isinstance(upsert_params["raw_json"], Jsonb)
     assert upsert_params["raw_json"].obj == payload
     assert marker_params == upsert_params

@@ -12,6 +12,9 @@ API_AUCTION_URL_BASE = "https://carsandbids.com/v2/autos/auctions"
 PAGE_LOAD_TIMEOUT_MS = 60_000
 API_RESPONSE_TIMEOUT_MS = 15_000
 logger = logging.getLogger(__name__)
+CARSANDBIDS_MIN_YEAR = 1946
+EXCLUDED_MODEL_VALUES = {"kart", "replica", "golf cart", "custom"}
+EXCLUDED_MAKE_VALUES = {"military vehicle", "other"}
 
 UPSERT_RAW_LISTING_JSON_SQL = """
 INSERT INTO raw_listing_json (
@@ -104,6 +107,40 @@ def fetch_listing_json(listing_id):
     return payload
 
 
+def evaluate_listing_eligibility(payload):
+    listing = payload.get("listing") or {}
+    model = listing.get("model")
+    make = listing.get("make")
+
+    if listing.get("is_not_car") is True:
+        return False, "listing marked not car"
+
+    if (
+        isinstance(model, str)
+        and _normalize_listing_value(model) in EXCLUDED_MODEL_VALUES
+    ):
+        return False, f"excluded model: {model}"
+
+    if (
+        isinstance(make, str)
+        and _normalize_listing_value(make) in EXCLUDED_MAKE_VALUES
+    ):
+        return False, f"excluded make: {make}"
+
+    if _normalize_listing_value(payload.get("status")) == "canceled":
+        return False, "listing canceled"
+
+    try:
+        year = int(listing.get("year"))
+    except (TypeError, ValueError):
+        return False, "listing year missing"
+
+    if year < CARSANDBIDS_MIN_YEAR:
+        return False, "year before 1946"
+
+    return True, None
+
+
 def build_raw_listing_json_params(listing_id, payload, url=None):
     return {
         "source_site": SOURCE_SITE,
@@ -127,3 +164,9 @@ def save_listing_json(listing_id, payload, url=None):
             logger.info(
                 "Saved Cars and Bids raw listing JSON for listing_id=%s", listing_id
             )
+
+
+def _normalize_listing_value(value):
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.lower().split())
