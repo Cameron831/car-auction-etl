@@ -236,6 +236,7 @@ def _insert_discovered_listing_rows(database_url):
                     url,
                     title,
                     auction_end_date,
+                    eligible,
                     discovered_at,
                     last_seen_at,
                     ingested_at
@@ -247,6 +248,7 @@ def _insert_discovered_listing_rows(database_url):
                         'https://bringatrailer.com/listing/first-pending/',
                         'First Pending',
                         DATE '2026-03-30',
+                        NULL,
                         TIMESTAMPTZ '2026-04-20 08:00:00+00',
                         TIMESTAMPTZ '2026-04-20 08:00:00+00',
                         NULL
@@ -258,6 +260,7 @@ def _insert_discovered_listing_rows(database_url):
                         'https://bringatrailer.com/listing/second-pending/',
                         'Second Pending',
                         DATE '2026-03-31',
+                        NULL,
                         TIMESTAMPTZ '2026-04-20 08:00:00+00',
                         TIMESTAMPTZ '2026-04-20 08:00:00+00',
                         NULL
@@ -269,6 +272,7 @@ def _insert_discovered_listing_rows(database_url):
                         'https://bringatrailer.com/listing/already-ingested/',
                         'Already Ingested',
                         DATE '2026-03-29',
+                        True,
                         TIMESTAMPTZ '2026-04-19 08:00:00+00',
                         TIMESTAMPTZ '2026-04-19 08:00:00+00',
                         TIMESTAMPTZ '2026-04-21 08:00:00+00'
@@ -280,6 +284,7 @@ def _insert_discovered_listing_rows(database_url):
                         'https://carsandbids.com/auctions/other-source',
                         'Other Source',
                         DATE '2026-03-28',
+                        True,
                         TIMESTAMPTZ '2026-04-18 08:00:00+00',
                         TIMESTAMPTZ '2026-04-18 08:00:00+00',
                         NULL
