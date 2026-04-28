@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, urlparse
 
 import psycopg
 from playwright.sync_api import sync_playwright
+from psycopg.rows import dict_row
 
 
 SOURCE_SITE = "carsandbids"
@@ -39,6 +40,33 @@ ON CONFLICT (source_site, source_listing_id) DO UPDATE SET
     auction_end_date = EXCLUDED.auction_end_date,
     last_seen_at = NOW()
 RETURNING xmax = 0 AS inserted
+"""
+
+SELECT_PENDING_DISCOVERED_LISTINGS_SQL = """
+SELECT
+    id,
+    source_site,
+    source_listing_id,
+    url,
+    title,
+    auction_end_date,
+    eligible,
+    eligibility_reason,
+    discovered_at,
+    last_seen_at,
+    ingested_at
+FROM discovered_listings
+WHERE source_site = %(source_site)s
+  AND eligible IS NULL
+ORDER BY discovered_at ASC, id ASC
+"""
+
+MARK_DISCOVERED_LISTING_HANDLED_SQL = """
+UPDATE discovered_listings
+SET eligible = %(eligible)s,
+    eligibility_reason = %(eligibility_reason)s
+WHERE source_site = %(source_site)s
+  AND source_listing_id = %(source_listing_id)s
 """
 
 
@@ -312,6 +340,45 @@ def save_discovered_listing(candidate):
                 params["source_listing_id"],
             )
             return inserted
+
+
+def load_pending_discovered_listings(limit=None):
+    if limit is not None and limit <= 0:
+        return []
+
+    database_url = _get_database_url()
+    params = {"source_site": SOURCE_SITE}
+    sql = SELECT_PENDING_DISCOVERED_LISTINGS_SQL
+
+    if limit is not None:
+        sql = f"{sql}\nLIMIT %(limit)s"
+        params["limit"] = limit
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            cur.execute(sql, params)
+            return cur.fetchall()
+
+
+def mark_discovered_listing_handled(listing_id, eligible, reason):
+    if eligible:
+        eligibility_reason = None
+    else:
+        if not reason or not str(reason).strip():
+            raise ValueError("reason is required when eligible is false")
+        eligibility_reason = reason
+
+    database_url = _get_database_url()
+    params = {
+        "source_site": SOURCE_SITE,
+        "source_listing_id": listing_id,
+        "eligible": eligible,
+        "eligibility_reason": eligibility_reason,
+    }
+
+    with psycopg.connect(database_url) as conn:
+        with conn.cursor() as cur:
+            cur.execute(MARK_DISCOVERED_LISTING_HANDLED_SQL, params)
 
 
 def _get_database_url():
