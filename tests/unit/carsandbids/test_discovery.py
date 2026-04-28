@@ -634,6 +634,222 @@ def test_save_discovered_listing_requires_database_url(mocker):
         )
 
 
+def test_load_pending_discovered_listings_executes_pending_query(mocker):
+    calls = {"executions": [], "row_factory": None}
+    rows = [
+        {
+            "source_site": "carsandbids",
+            "source_listing_id": "3gNQk4RZ",
+            "url": "https://carsandbids.com/auctions/3gNQk4RZ",
+        }
+    ]
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["executions"].append((sql, params))
+
+        def fetchall(self):
+            return rows
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self, row_factory=None):
+            calls["row_factory"] = row_factory
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    connect = mocker.patch.object(
+        discovery.psycopg,
+        "connect",
+        return_value=FakeConnection(),
+    )
+
+    assert discovery.load_pending_discovered_listings(limit=5) == rows
+
+    connect.assert_called_once_with("postgresql://user:pass@localhost/db")
+    sql, params = calls["executions"][0]
+    assert "FROM discovered_listings" in sql
+    assert "WHERE source_site = %(source_site)s" in sql
+    assert "AND eligible IS NULL" in sql
+    assert "ORDER BY discovered_at ASC, id ASC" in sql
+    assert "LIMIT %(limit)s" in sql
+    assert params == {"source_site": "carsandbids", "limit": 5}
+    assert calls["row_factory"] is discovery.dict_row
+
+
+def test_load_pending_discovered_listings_omits_limit_when_not_requested(mocker):
+    calls = {"executions": []}
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["executions"].append((sql, params))
+
+        def fetchall(self):
+            return []
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self, row_factory=None):
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
+
+    assert discovery.load_pending_discovered_listings() == []
+
+    sql, params = calls["executions"][0]
+    assert "LIMIT %(limit)s" not in sql
+    assert params == {"source_site": "carsandbids"}
+
+
+def test_load_pending_discovered_listings_returns_empty_for_non_positive_limit(mocker):
+    mocker.patch.dict("os.environ", {}, clear=True)
+    connect = mocker.patch.object(discovery.psycopg, "connect")
+
+    assert discovery.load_pending_discovered_listings(limit=0) == []
+    assert discovery.load_pending_discovered_listings(limit=-1) == []
+    connect.assert_not_called()
+
+
+def test_load_pending_discovered_listings_requires_database_url(mocker):
+    mocker.patch.dict("os.environ", {}, clear=True)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL must be set"):
+        discovery.load_pending_discovered_listings()
+
+
+def test_mark_discovered_listing_handled_marks_eligible_and_clears_reason(mocker):
+    calls = {"executions": []}
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["executions"].append((sql, params))
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self):
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
+
+    discovery.mark_discovered_listing_handled("3gNQk4RZ", True, "ignored")
+
+    sql, params = calls["executions"][0]
+    assert "UPDATE discovered_listings" in sql
+    assert "SET eligible = %(eligible)s" in sql
+    assert "eligibility_reason = %(eligibility_reason)s" in sql
+    assert "WHERE source_site = %(source_site)s" in sql
+    assert "AND source_listing_id = %(source_listing_id)s" in sql
+    assert params == {
+        "source_site": "carsandbids",
+        "source_listing_id": "3gNQk4RZ",
+        "eligible": True,
+        "eligibility_reason": None,
+    }
+
+
+def test_mark_discovered_listing_handled_marks_rejected_with_reason(mocker):
+    calls = {"executions": []}
+
+    class FakeCursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, sql, params):
+            calls["executions"].append((sql, params))
+
+    class FakeConnection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def cursor(self):
+            return FakeCursor()
+
+    mocker.patch.dict(
+        "os.environ",
+        {"DATABASE_URL": "postgresql://user:pass@localhost/db"},
+    )
+    mocker.patch.object(discovery.psycopg, "connect", return_value=FakeConnection())
+
+    discovery.mark_discovered_listing_handled(
+        "3gNQk4RZ",
+        False,
+        "year before 1946",
+    )
+
+    _, params = calls["executions"][0]
+    assert params == {
+        "source_site": "carsandbids",
+        "source_listing_id": "3gNQk4RZ",
+        "eligible": False,
+        "eligibility_reason": "year before 1946",
+    }
+
+
+def test_mark_discovered_listing_handled_requires_rejection_reason():
+    with pytest.raises(ValueError, match="reason is required"):
+        discovery.mark_discovered_listing_handled("3gNQk4RZ", False, None)
+
+    with pytest.raises(ValueError, match="reason is required"):
+        discovery.mark_discovered_listing_handled("3gNQk4RZ", False, "   ")
+
+
+def test_mark_discovered_listing_handled_requires_database_url(mocker):
+    mocker.patch.dict("os.environ", {}, clear=True)
+
+    with pytest.raises(RuntimeError, match="DATABASE_URL must be set"):
+        discovery.mark_discovered_listing_handled("3gNQk4RZ", True, None)
+
+
 class FakeResponse:
     def __init__(
         self,
