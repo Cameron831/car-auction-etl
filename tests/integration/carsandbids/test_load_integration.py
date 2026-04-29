@@ -79,7 +79,7 @@ def test_transform_and_load_listing_json_upserts_into_postgres_container(monkeyp
                 row_count, sale_price = cur.fetchone()
                 cur.execute(
                     """
-                    SELECT make, model, year, mileage, vin, sold, auction_end_date, transmission, listing_details_raw
+                    SELECT make, model_raw, model_normalized, year, mileage, vin, sold, auction_end_date, transmission, listing_details_raw
                     FROM listings
                     WHERE source_site = %s AND source_listing_id = %s
                     """,
@@ -98,19 +98,20 @@ def test_transform_and_load_listing_json_upserts_into_postgres_container(monkeyp
 
         assert row_count == 1
         assert sale_price == 80000
-        assert listing_row[0:6] == (
+        assert listing_row[0:7] == (
             "Porsche",
             "991 911",
+            "911",
             2013,
             56700,
             "WP0AA2A95DS107582",
             True,
         )
-        assert listing_row[6].isoformat() == "2026-04-20"
-        assert listing_row[7] == "manual"
-        assert listing_row[8]["engine"] == "3.4L Flat-6"
-        assert "title" not in listing_row[8]
-        assert "location" not in listing_row[8]
+        assert listing_row[7].isoformat() == "2026-04-20"
+        assert listing_row[8] == "manual"
+        assert listing_row[9]["engine"] == "3.4L Flat-6"
+        assert "title" not in listing_row[9]
+        assert "location" not in listing_row[9]
         assert raw_processed is True
     finally:
         subprocess.run(["docker", "rm", "-f", container_name], capture_output=True, text=True)

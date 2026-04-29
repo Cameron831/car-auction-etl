@@ -12,6 +12,7 @@ from app.sources.bat.ingest import (
     extract_group_value,
     parse_listing_id_year,
 )
+from app.model_normalization import normalize_model
 
 
 SOURCE_SITE = "bringatrailer"
@@ -101,7 +102,8 @@ def transform_listing_html(listing_id):
     # transformed entries
     year = parse_listing_id_year(listing_id)
     make = parse_make(soup)
-    model = parse_model(soup)
+    model_raw = parse_model(soup)
+    model_normalized = normalize_model(make, model_raw)
     mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
     vin = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
     sale_price = extract_sale_price(soup, product_data)
@@ -115,7 +117,8 @@ def transform_listing_html(listing_id):
         "listing_id": listing_id,
         "url": f"https://bringatrailer.com/listing/{listing_id}/",
         "make": make,
-        "model": model,
+        "model_raw": model_raw,
+        "model_normalized": model_normalized,
         "year": year,
         "mileage": mileage,
         "vin": vin,

@@ -30,7 +30,8 @@ Implementation Steps:
 - url: string
 - auction_end_date: datetime
 - make: string
-- model: string
+- model_raw: string
+- model_normalized: string
 - year: int
 - mileage: int
 - vin: string
