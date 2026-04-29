@@ -1,6 +1,7 @@
 .venv/
 __pycache__/
 *.pyc
+*.egg-info/
 data/
 transform_backup.py
 .env
