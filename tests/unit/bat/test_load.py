@@ -12,7 +12,8 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
     assert params["source_listing_id"] == "test-listing"
     assert params["url"] == "https://bringatrailer.com/listing/test-listing/"
     assert params["make"] == "BMW"
-    assert params["model"] == "M3"
+    assert params["model_raw"] == "BMW E46 M3"
+    assert params["model_normalized"] == "M3"
     assert params["year"] == 2004
     assert params["mileage"] == 50250
     assert params["vin"] == "WBSBL93414PN57203"
@@ -29,11 +30,13 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
 
 def test_build_listing_params_allows_null_model():
     transformed_listing = _transformed_listing()
-    transformed_listing["model"] = None
+    transformed_listing["model_raw"] = None
+    transformed_listing["model_normalized"] = None
 
     params = load.build_listing_params(transformed_listing)
 
-    assert params["model"] is None
+    assert params["model_raw"] is None
+    assert params["model_normalized"] is None
 
 
 def test_load_listing_executes_upsert_with_expected_conflict_target(mocker, caplog):
@@ -78,6 +81,9 @@ def test_load_listing_executes_upsert_with_expected_conflict_target(mocker, capl
     assert calls["database_url"] == "postgresql://user:pass@localhost/db"
     assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in listing_sql
     assert "updated_at = NOW()" in listing_sql
+    assert "model_raw" in listing_sql
+    assert "model_normalized" in listing_sql
+    assert "model = EXCLUDED.model" not in listing_sql
     assert listing_params["source_listing_id"] == "test-listing"
     assert listing_params["listing_details_raw"].obj == [
         "Chassis: WBSBL93414PN57203",
@@ -107,7 +113,8 @@ def _transformed_listing():
         "listing_id": "test-listing",
         "url": "https://bringatrailer.com/listing/test-listing/",
         "make": "BMW",
-        "model": "M3",
+        "model_raw": "BMW E46 M3",
+        "model_normalized": "M3",
         "year": 2004,
         "mileage": 50250,
         "vin": "WBSBL93414PN57203",

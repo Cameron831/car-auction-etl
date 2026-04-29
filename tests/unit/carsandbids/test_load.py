@@ -12,7 +12,8 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
     assert params["source_listing_id"] == "test-listing"
     assert params["url"] == "https://carsandbids.com/auctions/test-listing"
     assert params["make"] == "Porsche"
-    assert params["model"] == "991 911"
+    assert params["model_raw"] == "991 911"
+    assert params["model_normalized"] == "911"
     assert params["year"] == 2013
     assert params["mileage"] == 56700
     assert params["vin"] == "WP0AA2A95DS107582"
@@ -27,14 +28,16 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
 
 def test_build_listing_params_allows_null_optional_fields():
     transformed_listing = _transformed_listing()
-    transformed_listing["model"] = None
+    transformed_listing["model_raw"] = None
+    transformed_listing["model_normalized"] = None
     transformed_listing["mileage"] = None
     transformed_listing["vin"] = None
     transformed_listing["transmission"] = None
 
     params = load.build_listing_params(transformed_listing)
 
-    assert params["model"] is None
+    assert params["model_raw"] is None
+    assert params["model_normalized"] is None
     assert params["mileage"] is None
     assert params["vin"] is None
     assert params["transmission"] is None
@@ -82,6 +85,9 @@ def test_load_listing_executes_upsert_and_marks_raw_json_processed(mocker, caplo
     assert calls["database_url"] == "postgresql://user:pass@localhost/db"
     assert "ON CONFLICT (source_site, source_listing_id) DO UPDATE" in listing_sql
     assert "updated_at = NOW()" in listing_sql
+    assert "model_raw" in listing_sql
+    assert "model_normalized" in listing_sql
+    assert "model = EXCLUDED.model" not in listing_sql
     assert listing_params["source_listing_id"] == "test-listing"
     assert listing_params["listing_details_raw"].obj == {
         "title": "2013 Porsche 911 Carrera Coupe",
@@ -109,7 +115,8 @@ def _transformed_listing():
         "listing_id": "test-listing",
         "url": "https://carsandbids.com/auctions/test-listing",
         "make": "Porsche",
-        "model": "991 911",
+        "model_raw": "991 911",
+        "model_normalized": "911",
         "year": 2013,
         "mileage": 56700,
         "vin": "WP0AA2A95DS107582",

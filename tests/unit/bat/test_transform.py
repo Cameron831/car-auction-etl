@@ -234,6 +234,8 @@ def test_transform_listing_html_logs_success_without_raw_html(mocker, caplog):
     transformed = transform.transform_listing_html("2004-test-id")
 
     assert transformed["listing_id"] == "2004-test-id"
+    assert transformed["model_raw"] == "M3"
+    assert transformed["model_normalized"] == "M3"
     assert "Transforming BAT listing HTML for listing_id=2004-test-id" in caplog.text
     assert "Transformed BAT listing HTML for listing_id=2004-test-id" in caplog.text
     assert "SENSITIVE_RAW_HTML" not in caplog.text
@@ -280,7 +282,8 @@ def test_transform_listing_html_allows_missing_model(mocker):
     transformed = transform.transform_listing_html("2004-missing-model")
 
     assert transformed["make"] == "BMW"
-    assert transformed["model"] is None
+    assert transformed["model_raw"] is None
+    assert transformed["model_normalized"] is None
     assert transformed["year"] == 2004
 
 def test_get_product_json_ld_returns_product_data(tmp_path):

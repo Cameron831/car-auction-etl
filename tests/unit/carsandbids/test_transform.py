@@ -221,7 +221,8 @@ def test_transform_listing_json_maps_fixture_to_normalized_listing(mocker):
     assert transformed["listing_id"] == "3pnjnnx6"
     assert transformed["url"] == "https://carsandbids.com/auctions/3pnjnnx6"
     assert transformed["make"] == "Porsche"
-    assert transformed["model"] == "991 911"
+    assert transformed["model_raw"] == "991 911"
+    assert transformed["model_normalized"] == "911"
     assert transformed["year"] == 2013
     assert transformed["mileage"] == 56700
     assert transformed["vin"] == "WP0AA2A95DS107582"

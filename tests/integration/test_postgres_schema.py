@@ -51,7 +51,14 @@ def test_schema_sql_applies_in_isolated_postgres_container():
             SELECT column_name || ':' || data_type || ':' || is_nullable
             FROM information_schema.columns
             WHERE table_name = 'listings'
-              AND column_name IN ('auction_end_date', 'listing_details_raw', 'make', 'model')
+              AND column_name IN (
+                  'auction_end_date',
+                  'listing_details_raw',
+                  'make',
+                  'model',
+                  'model_raw',
+                  'model_normalized'
+              )
             ORDER BY column_name;
             """,
         )
@@ -59,7 +66,8 @@ def test_schema_sql_applies_in_isolated_postgres_container():
             "auction_end_date:date:NO",
             "listing_details_raw:jsonb:YES",
             "make:text:NO",
-            "model:text:YES",
+            "model_normalized:text:YES",
+            "model_raw:text:YES",
         ]
 
         unique_columns = _psql(

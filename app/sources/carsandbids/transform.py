@@ -5,6 +5,7 @@ from datetime import datetime
 import psycopg
 from psycopg.rows import dict_row
 
+from app.model_normalization import normalize_model
 from app.sources.carsandbids.ingest import build_listing_url
 
 
@@ -90,13 +91,15 @@ def transform_listing_json(listing_id):
     logger.info("Transforming Cars and Bids listing JSON for listing_id=%s", listing_id)
     payload = load_listing_json(listing_id)
     listing = payload["listing"]
+    model_raw = listing["model"]
 
     transformed_data = {
         "source_site": SOURCE_SITE,
         "listing_id": listing_id,
         "url": build_listing_url(listing_id),
         "make": listing["make"],
-        "model": listing["model"],
+        "model_raw": model_raw,
+        "model_normalized": normalize_model(listing["make"], model_raw),
         "year": listing["year"],
         "mileage": listing["mileage"],
         "vin": listing["vin"],
