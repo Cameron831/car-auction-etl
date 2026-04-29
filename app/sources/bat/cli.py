@@ -43,6 +43,39 @@ def configure_logging():
     )
 
 
+def _format_bool(value):
+    return str(value).lower()
+
+
+def _print_ingest_summary(summary):
+    print(
+        "Ingest summary: "
+        f"listing_id={summary.listing_id} "
+        f"accepted={_format_bool(summary.accepted)} "
+        f"raw_stored={_format_bool(summary.raw_stored)}"
+    )
+
+
+def _print_transform_summary(summary):
+    print(
+        "Transform summary: "
+        f"listing_id={summary.listing_id} "
+        f"transformed={_format_bool(summary.transformed)} "
+        f"loaded={_format_bool(summary.loaded)}"
+    )
+
+
+def _print_run_summary(summary):
+    print(
+        "Run summary: "
+        f"listing_id={summary.listing_id} "
+        f"accepted={_format_bool(summary.accepted)} "
+        f"raw_stored={_format_bool(summary.raw_stored)} "
+        f"transformed={_format_bool(summary.transformed)} "
+        f"loaded={_format_bool(summary.loaded)}"
+    )
+
+
 def main(argv=None):
     configure_logging()
     args = build_parser().parse_args(argv)
@@ -131,11 +164,14 @@ def main(argv=None):
 
         logger.info("BAT %s command started for listing_id=%s", args.command, args.listing_id)
         if args.command == "ingest":
-            bat_pipeline.ingest_listing(args.listing_id)
+            summary = bat_pipeline.ingest_listing(args.listing_id)
+            _print_ingest_summary(summary)
         elif args.command == "transform":
-            bat_pipeline.transform_listing(args.listing_id)
+            summary = bat_pipeline.transform_listing(args.listing_id)
+            _print_transform_summary(summary)
         elif args.command == "run":
-            bat_pipeline.run_listing(args.listing_id)
+            summary = bat_pipeline.run_listing(args.listing_id)
+            _print_run_summary(summary)
     except Exception:
         if args.command == "discover":
             logger.error(

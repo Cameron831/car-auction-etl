@@ -7,9 +7,14 @@ from app.pipeline import carsandbids
 from app.sources.carsandbids import cli
 
 
-def test_ingest_command_fetches_and_saves_listing_json(mocker, caplog):
+def test_ingest_command_fetches_and_saves_listing_json(mocker, caplog, capsys):
     ingest_listing = mocker.patch(
-        "app.sources.carsandbids.cli.carsandbids_pipeline.ingest_listing"
+        "app.sources.carsandbids.cli.carsandbids_pipeline.ingest_listing",
+        return_value=carsandbids.SingleIngestSummary(
+            listing_id="test-id",
+            accepted=True,
+            raw_stored=True,
+        ),
     )
 
     caplog.set_level(logging.INFO)
@@ -18,10 +23,52 @@ def test_ingest_command_fetches_and_saves_listing_json(mocker, caplog):
     ingest_listing.assert_called_once_with("test-id")
     assert "carsandbids ingest command started for listing_id=test-id" in caplog.text
     assert "carsandbids ingest command completed for listing_id=test-id" in caplog.text
+    assert (
+        "Ingest summary: listing_id=test-id accepted=true raw_stored=true\n"
+        == capsys.readouterr().out
+    )
+
+
+def test_ingest_command_prints_rejected_summary_without_reason(mocker, capsys):
+    mocker.patch(
+        "app.sources.carsandbids.cli.carsandbids_pipeline.ingest_listing",
+        return_value=carsandbids.SingleIngestSummary(
+            listing_id="test-id",
+            accepted=False,
+            raw_stored=False,
+            reason="year before 1946",
+        ),
+    )
+
+    cli.main(["ingest", "--listing-id", "test-id"])
+
+    out = capsys.readouterr().out
+    assert out == "Ingest summary: listing_id=test-id accepted=false raw_stored=false\n"
+    assert "reason" not in out
+    assert "source" not in out
+
+
+def test_transform_command_prints_summary(mocker, capsys):
+    transform_listing = mocker.patch(
+        "app.sources.carsandbids.cli.carsandbids_pipeline.transform_listing",
+        return_value=carsandbids.SingleTransformSummary(
+            listing_id="test-id",
+            transformed=True,
+            loaded=True,
+        ),
+    )
+
+    cli.main(["transform", "--listing-id", "test-id"])
+
+    transform_listing.assert_called_once_with("test-id")
+    assert (
+        "Transform summary: listing_id=test-id transformed=true loaded=true\n"
+        == capsys.readouterr().out
+    )
 
 
 def test_transform_command_logs_failure_context_without_traceback_and_reraises(
-    mocker, caplog
+    mocker, caplog, capsys
 ):
     error = RuntimeError("transform failed")
     mocker.patch(
@@ -38,16 +85,52 @@ def test_transform_command_logs_failure_context_without_traceback_and_reraises(
     assert "carsandbids transform command failed for listing_id=test-id" in caplog.text
     assert "Traceback" not in caplog.text
     assert "RuntimeError: transform failed" not in caplog.text
+    assert "Transform summary:" not in capsys.readouterr().out
 
 
-def test_run_command_executes_ingest_transform_load_in_order(mocker):
+def test_run_command_executes_ingest_transform_load_in_order(mocker, capsys):
     run_listing = mocker.patch(
-        "app.sources.carsandbids.cli.carsandbids_pipeline.run_listing"
+        "app.sources.carsandbids.cli.carsandbids_pipeline.run_listing",
+        return_value=carsandbids.SingleRunSummary(
+            listing_id="test-id",
+            accepted=True,
+            raw_stored=True,
+            transformed=True,
+            loaded=True,
+        ),
     )
 
     cli.main(["run", "--listing-id", "test-id"])
 
     run_listing.assert_called_once_with("test-id")
+    assert (
+        "Run summary: listing_id=test-id accepted=true raw_stored=true "
+        "transformed=true loaded=true\n"
+    ) == capsys.readouterr().out
+
+
+def test_run_command_prints_rejected_summary_without_reason(mocker, capsys):
+    mocker.patch(
+        "app.sources.carsandbids.cli.carsandbids_pipeline.run_listing",
+        return_value=carsandbids.SingleRunSummary(
+            listing_id="test-id",
+            accepted=False,
+            raw_stored=False,
+            transformed=False,
+            loaded=False,
+            reason="year before 1946",
+        ),
+    )
+
+    cli.main(["run", "--listing-id", "test-id"])
+
+    out = capsys.readouterr().out
+    assert (
+        "Run summary: listing_id=test-id accepted=false raw_stored=false "
+        "transformed=false loaded=false\n"
+    ) == out
+    assert "reason" not in out
+    assert "source" not in out
 
 
 def test_discover_command_parses_without_listing_id():

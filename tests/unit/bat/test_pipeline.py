@@ -18,7 +18,7 @@ def test_ingest_listing_fetches_and_saves_listing_html(mocker):
         "app.pipeline.bat.mark_discovered_listing_handled"
     )
 
-    bat.ingest_listing("test-id")
+    summary = bat.ingest_listing("test-id")
 
     fetch_listing_html.assert_called_once_with("test-id")
     evaluate_listing_eligibility.assert_called_once()
@@ -27,6 +27,41 @@ def test_ingest_listing_fetches_and_saves_listing_html(mocker):
     assert listing_id == "test-id"
     mark_discovered_listing_handled.assert_called_once_with("test-id", True, None)
     save_listing_html.assert_called_once_with("test-id", "<html>Test</html>")
+    assert summary == bat.SingleIngestSummary(
+        listing_id="test-id",
+        accepted=True,
+        raw_stored=True,
+    )
+
+
+def test_ingest_listing_marks_rejected_listing_without_saving_html(mocker):
+    mocker.patch(
+        "app.pipeline.bat.fetch_listing_html",
+        return_value="<html>Test</html>",
+    )
+    mocker.patch(
+        "app.pipeline.bat.evaluate_listing_eligibility",
+        return_value=(False, "year before 1946"),
+    )
+    mark_discovered_listing_handled = mocker.patch(
+        "app.pipeline.bat.mark_discovered_listing_handled"
+    )
+    save_listing_html = mocker.patch("app.pipeline.bat.save_listing_html")
+
+    summary = bat.ingest_listing("test-id")
+
+    mark_discovered_listing_handled.assert_called_once_with(
+        "test-id",
+        False,
+        "year before 1946",
+    )
+    save_listing_html.assert_not_called()
+    assert summary == bat.SingleIngestSummary(
+        listing_id="test-id",
+        accepted=False,
+        raw_stored=False,
+        reason="year before 1946",
+    )
 
 
 def test_transform_listing_transforms_and_loads_listing(mocker):
@@ -37,10 +72,15 @@ def test_transform_listing_transforms_and_loads_listing(mocker):
     )
     load_listing = mocker.patch("app.pipeline.bat.load_listing")
 
-    bat.transform_listing("test-id")
+    summary = bat.transform_listing("test-id")
 
     transform_listing_html.assert_called_once_with("test-id")
     load_listing.assert_called_once_with(transformed_listing)
+    assert summary == bat.SingleTransformSummary(
+        listing_id="test-id",
+        transformed=True,
+        loaded=True,
+    )
 
 
 def test_run_listing_executes_ingest_transform_load_in_order(mocker):
@@ -75,7 +115,7 @@ def test_run_listing_executes_ingest_transform_load_in_order(mocker):
         side_effect=lambda listing: calls.append(("load", listing)),
     )
 
-    bat.run_listing("test-id")
+    summary = bat.run_listing("test-id")
 
     assert calls == [
         ("fetch", "test-id"),
@@ -85,6 +125,38 @@ def test_run_listing_executes_ingest_transform_load_in_order(mocker):
         ("transform", "test-id"),
         ("load", transformed_listing),
     ]
+    assert summary == bat.SingleRunSummary(
+        listing_id="test-id",
+        accepted=True,
+        raw_stored=True,
+        transformed=True,
+        loaded=True,
+    )
+
+
+def test_run_listing_skips_transform_when_ingest_rejects_listing(mocker):
+    mocker.patch(
+        "app.pipeline.bat.ingest_listing",
+        return_value=bat.SingleIngestSummary(
+            listing_id="test-id",
+            accepted=False,
+            raw_stored=False,
+            reason="year before 1946",
+        ),
+    )
+    transform_listing = mocker.patch("app.pipeline.bat.transform_listing")
+
+    summary = bat.run_listing("test-id")
+
+    transform_listing.assert_not_called()
+    assert summary == bat.SingleRunSummary(
+        listing_id="test-id",
+        accepted=False,
+        raw_stored=False,
+        transformed=False,
+        loaded=False,
+        reason="year before 1946",
+    )
 
 
 def test_discover_listings_delegates_to_discovery(mocker):
