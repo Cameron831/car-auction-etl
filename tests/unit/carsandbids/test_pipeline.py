@@ -37,12 +37,17 @@ def test_ingest_listing_fetches_and_saves_listing_json(mocker):
         "app.pipeline.carsandbids.mark_discovered_listing_handled"
     )
 
-    assert carsandbids.ingest_listing("test-id") is True
+    summary = carsandbids.ingest_listing("test-id")
 
     fetch_listing_json.assert_called_once_with("test-id")
     evaluate_listing_eligibility.assert_called_once_with(payload)
     mark_discovered_listing_handled.assert_called_once_with("test-id", True, None)
     save_listing_json.assert_called_once_with("test-id", payload)
+    assert summary == carsandbids.SingleIngestSummary(
+        listing_id="test-id",
+        accepted=True,
+        raw_stored=True,
+    )
 
 
 def test_ingest_listing_marks_rejected_listing_without_saving_json(mocker):
@@ -60,7 +65,7 @@ def test_ingest_listing_marks_rejected_listing_without_saving_json(mocker):
     )
     save_listing_json = mocker.patch("app.pipeline.carsandbids.save_listing_json")
 
-    assert carsandbids.ingest_listing("test-id") is False
+    summary = carsandbids.ingest_listing("test-id")
 
     mark_discovered_listing_handled.assert_called_once_with(
         "test-id",
@@ -68,6 +73,12 @@ def test_ingest_listing_marks_rejected_listing_without_saving_json(mocker):
         "year before 1946",
     )
     save_listing_json.assert_not_called()
+    assert summary == carsandbids.SingleIngestSummary(
+        listing_id="test-id",
+        accepted=False,
+        raw_stored=False,
+        reason="year before 1946",
+    )
 
 
 def test_transform_listing_transforms_and_loads_listing(mocker):
@@ -78,10 +89,15 @@ def test_transform_listing_transforms_and_loads_listing(mocker):
     )
     load_listing = mocker.patch("app.pipeline.carsandbids.load_listing")
 
-    carsandbids.transform_listing("test-id")
+    summary = carsandbids.transform_listing("test-id")
 
     transform_listing_json.assert_called_once_with("test-id")
     load_listing.assert_called_once_with(transformed_listing)
+    assert summary == carsandbids.SingleTransformSummary(
+        listing_id="test-id",
+        transformed=True,
+        loaded=True,
+    )
 
 
 def test_run_listing_executes_ingest_transform_load_in_order(mocker):
@@ -120,7 +136,7 @@ def test_run_listing_executes_ingest_transform_load_in_order(mocker):
         side_effect=lambda listing: calls.append(("load", listing)),
     )
 
-    carsandbids.run_listing("test-id")
+    summary = carsandbids.run_listing("test-id")
 
     assert calls == [
         ("fetch", "test-id"),
@@ -130,15 +146,38 @@ def test_run_listing_executes_ingest_transform_load_in_order(mocker):
         ("transform", "test-id"),
         ("load", transformed_listing),
     ]
+    assert summary == carsandbids.SingleRunSummary(
+        listing_id="test-id",
+        accepted=True,
+        raw_stored=True,
+        transformed=True,
+        loaded=True,
+    )
 
 
 def test_run_listing_skips_transform_when_ingest_rejects_listing(mocker):
-    mocker.patch("app.pipeline.carsandbids.ingest_listing", return_value=False)
+    mocker.patch(
+        "app.pipeline.carsandbids.ingest_listing",
+        return_value=carsandbids.SingleIngestSummary(
+            listing_id="test-id",
+            accepted=False,
+            raw_stored=False,
+            reason="year before 1946",
+        ),
+    )
     transform_listing = mocker.patch("app.pipeline.carsandbids.transform_listing")
 
-    carsandbids.run_listing("test-id")
+    summary = carsandbids.run_listing("test-id")
 
     transform_listing.assert_not_called()
+    assert summary == carsandbids.SingleRunSummary(
+        listing_id="test-id",
+        accepted=False,
+        raw_stored=False,
+        transformed=False,
+        loaded=False,
+        reason="year before 1946",
+    )
 
 
 def test_discover_listings_delegates_to_discovery(mocker):

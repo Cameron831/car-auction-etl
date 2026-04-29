@@ -40,27 +40,83 @@ class BatchTransformSummary:
     load_failed: int = 0
 
 
+@dataclass
+class SingleIngestSummary:
+    listing_id: str
+    accepted: bool
+    raw_stored: bool
+    reason: str | None = None
+
+
+@dataclass
+class SingleTransformSummary:
+    listing_id: str
+    transformed: bool
+    loaded: bool
+
+
+@dataclass
+class SingleRunSummary:
+    listing_id: str
+    accepted: bool
+    raw_stored: bool
+    transformed: bool
+    loaded: bool
+    reason: str | None = None
+
+
 def ingest_listing(listing_id):
     html = fetch_listing_html(listing_id)
     soup = BeautifulSoup(html, "html.parser")
     eligible, reason = evaluate_listing_eligibility(soup, listing_id)
     mark_discovered_listing_handled(listing_id, eligible, reason)
-    
+
     if not eligible:
-        return False
-    
+        return SingleIngestSummary(
+            listing_id=listing_id,
+            accepted=False,
+            raw_stored=False,
+            reason=reason,
+        )
+
     save_listing_html(listing_id, html)
-    return True
+    return SingleIngestSummary(
+        listing_id=listing_id,
+        accepted=True,
+        raw_stored=True,
+    )
+
 
 def transform_listing(listing_id):
     transformed_listing = transform_listing_html(listing_id)
     load_listing(transformed_listing)
+    return SingleTransformSummary(
+        listing_id=listing_id,
+        transformed=True,
+        loaded=True,
+    )
 
 
 def run_listing(listing_id):
-    if not ingest_listing(listing_id):
-        return
-    transform_listing(listing_id)
+    ingest_summary = ingest_listing(listing_id)
+    if not ingest_summary.accepted:
+        return SingleRunSummary(
+            listing_id=listing_id,
+            accepted=False,
+            raw_stored=False,
+            transformed=False,
+            loaded=False,
+            reason=ingest_summary.reason,
+        )
+
+    transform_summary = transform_listing(listing_id)
+    return SingleRunSummary(
+        listing_id=listing_id,
+        accepted=True,
+        raw_stored=ingest_summary.raw_stored,
+        transformed=transform_summary.transformed,
+        loaded=transform_summary.loaded,
+    )
 
 
 def discover_listings(scrape_date, max_candidates=None):
