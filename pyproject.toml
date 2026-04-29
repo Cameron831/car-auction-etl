@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "car-auction-etl"
+version = "0.1.0"
+description = "ETL tools for completed vehicle auction listings."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "beautifulsoup4==4.13.4",
+    "certifi==2026.2.25",
+    "charset-normalizer==3.4.6",
+    "colorama==0.4.6",
+    "idna==3.11",
+    "iniconfig==2.3.0",
+    "packaging==26.0",
+    "playwright==1.58.0",
+    "pluggy==1.6.0",
+    "psycopg[binary]==3.2.13",
+    "Pygments==2.20.0",
+    "python-dotenv==1.2.1",
+    "requests==2.33.1",
+    "soupsieve==2.8.3",
+    "typing_extensions==4.15.0",
+    "urllib3==2.6.3",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest==9.0.2",
+    "pytest-mock==3.15.1",
+]
+
+[project.scripts]
+auction-etl = "app.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+namespaces = true
+
