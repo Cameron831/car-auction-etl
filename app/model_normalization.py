@@ -8,6 +8,18 @@ MODEL_MAPPINGS = (
     ("Alfa Romeo", "Spider", "Spider"),
     ("Honda", "S2000", "S2000"),
     ("Ferrari", "360", "360"),
+    ("Mercedes-Benz", "E-Class", "E-Class"),
+    ("Mazda", "Miata", "Miata"),
+    ("Mazda", "RX-7", "RX-7"),
+    ("Toyota", "Supra", "Supra"),
+    ("Aston Martin", "Vantage", "Vantage"),
+    ("Chevrolet", "Corvette", "Corvette"),
+    ("Ford", "Mustang", "Mustang"),
+    ("Porsche", "Cayman", "Cayman"),
+    ("Cadillac", "CT5", "CT5"),
+    ("Audi", "R8", "R8"),
+    ("Dodge", "Viper", "Viper"),
+    ("Acura", "NSX", "NSX"),
 )
 
 
