@@ -286,6 +286,118 @@ def test_transform_listing_html_allows_missing_model(mocker):
     assert transformed["model_normalized"] is None
     assert transformed["year"] == 2004
 
+def test_transform_listing_html_allows_missing_mileage_detail(mocker):
+    html_content = """
+    <html>
+        <head>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "One Owner BMW M3",
+                "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "USD",
+                    "price": 19750
+                }
+            }
+            </script>
+        </head>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Make</strong>
+                BMW
+            </button>
+            <button class="group-title">
+                <strong class="group-title-label">Model</strong>
+                M3
+            </button>
+            <div class="item">
+                <strong>Listing Details</strong>
+                <ul>
+                    <li>Chassis: WBSBL93414PN57203</li>
+                    <li>6-Speed Manual Transmission</li>
+                </ul>
+            </div>
+            <div class="listing-available-info">
+                <span>Sold for <strong>USD $19,750</strong></span>
+            </div>
+            <span class="date date-localize" data-timestamp="1774898451"></span>
+        </body>
+    </html>
+    """
+    mocker.patch.object(transform, "load_listing_html", return_value=html_content)
+
+    transformed = transform.transform_listing_html("2004-missing-mileage")
+
+    assert transformed["mileage"] is None
+    assert transformed["vin"] == "WBSBL93414PN57203"
+    assert transformed["transmission"] == "manual"
+
+
+@pytest.mark.parametrize(
+    ("listing_details", "error"),
+    [
+        (
+            """
+            <li>50,250 Miles</li>
+            <li>6-Speed Manual Transmission</li>
+            """,
+            "Could not parse VIN",
+        ),
+        (
+            """
+            <li>Chassis: WBSBL93414PN57203</li>
+            <li>50,250 Miles</li>
+            """,
+            "Could not parse Transmission",
+        ),
+    ],
+)
+def test_transform_listing_html_preserves_required_detail_failures(
+    mocker,
+    listing_details,
+    error,
+):
+    html_content = f"""
+    <html>
+        <head>
+            <script type="application/ld+json">
+            {{
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "One Owner BMW M3",
+                "offers": {{
+                    "@type": "Offer",
+                    "priceCurrency": "USD",
+                    "price": 19750
+                }}
+            }}
+            </script>
+        </head>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Make</strong>
+                BMW
+            </button>
+            <div class="item">
+                <strong>Listing Details</strong>
+                <ul>
+                    {listing_details}
+                </ul>
+            </div>
+            <div class="listing-available-info">
+                <span>Sold for <strong>USD $19,750</strong></span>
+            </div>
+            <span class="date date-localize" data-timestamp="1774898451"></span>
+        </body>
+    </html>
+    """
+    mocker.patch.object(transform, "load_listing_html", return_value=html_content)
+
+    with pytest.raises(ValueError, match=error):
+        transform.transform_listing_html("2004-required-field-failure")
+
 def test_get_product_json_ld_returns_product_data(tmp_path):
     # create a test HTML file with a valid JSON-LD script tag
     html_content = """
@@ -723,6 +835,7 @@ def test_parse_mileage_valid():
 def test_parse_mileage_TMU():
     assert transform.parse_mileage("TMU") == None
     assert transform.parse_mileage("Mileage Unknown") == None
+    assert transform.parse_mileage("miles shown") == None
 
 def test_parse_mileage_invalid():
     with pytest.raises(ValueError, match="Could not parse mileage"):
