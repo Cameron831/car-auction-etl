@@ -236,6 +236,8 @@ def test_transform_listing_html_logs_success_without_raw_html(mocker, caplog):
     assert transformed["listing_id"] == "2004-test-id"
     assert transformed["model_raw"] == "M3"
     assert transformed["model_normalized"] == "M3"
+    assert transformed["mileage"] == 50250
+    assert transformed["tmu"] is False
     assert "Transforming BAT listing HTML for listing_id=2004-test-id" in caplog.text
     assert "Transformed BAT listing HTML for listing_id=2004-test-id" in caplog.text
     assert "SENSITIVE_RAW_HTML" not in caplog.text
@@ -285,6 +287,119 @@ def test_transform_listing_html_allows_missing_model(mocker):
     assert transformed["model_raw"] is None
     assert transformed["model_normalized"] is None
     assert transformed["year"] == 2004
+
+def test_transform_listing_html_allows_missing_mileage_detail(mocker):
+    html_content = """
+    <html>
+        <head>
+            <script type="application/ld+json">
+            {
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "One Owner BMW M3",
+                "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "USD",
+                    "price": 19750
+                }
+            }
+            </script>
+        </head>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Make</strong>
+                BMW
+            </button>
+            <button class="group-title">
+                <strong class="group-title-label">Model</strong>
+                M3
+            </button>
+            <div class="item">
+                <strong>Listing Details</strong>
+                <ul>
+                    <li>Chassis: WBSBL93414PN57203</li>
+                    <li>6-Speed Manual Transmission</li>
+                </ul>
+            </div>
+            <div class="listing-available-info">
+                <span>Sold for <strong>USD $19,750</strong></span>
+            </div>
+            <span class="date date-localize" data-timestamp="1774898451"></span>
+        </body>
+    </html>
+    """
+    mocker.patch.object(transform, "load_listing_html", return_value=html_content)
+
+    transformed = transform.transform_listing_html("2004-missing-mileage")
+
+    assert transformed["mileage"] is None
+    assert transformed["tmu"] is True
+    assert transformed["vin"] == "WBSBL93414PN57203"
+    assert transformed["transmission"] == "manual"
+
+
+@pytest.mark.parametrize(
+    ("listing_details", "error"),
+    [
+        (
+            """
+            <li>50,250 Miles</li>
+            <li>6-Speed Manual Transmission</li>
+            """,
+            "Could not parse VIN",
+        ),
+        (
+            """
+            <li>Chassis: WBSBL93414PN57203</li>
+            <li>50,250 Miles</li>
+            """,
+            "Could not parse Transmission",
+        ),
+    ],
+)
+def test_transform_listing_html_preserves_required_detail_failures(
+    mocker,
+    listing_details,
+    error,
+):
+    html_content = f"""
+    <html>
+        <head>
+            <script type="application/ld+json">
+            {{
+                "@context": "http://schema.org",
+                "@type": "Product",
+                "name": "One Owner BMW M3",
+                "offers": {{
+                    "@type": "Offer",
+                    "priceCurrency": "USD",
+                    "price": 19750
+                }}
+            }}
+            </script>
+        </head>
+        <body>
+            <button class="group-title">
+                <strong class="group-title-label">Make</strong>
+                BMW
+            </button>
+            <div class="item">
+                <strong>Listing Details</strong>
+                <ul>
+                    {listing_details}
+                </ul>
+            </div>
+            <div class="listing-available-info">
+                <span>Sold for <strong>USD $19,750</strong></span>
+            </div>
+            <span class="date date-localize" data-timestamp="1774898451"></span>
+        </body>
+    </html>
+    """
+    mocker.patch.object(transform, "load_listing_html", return_value=html_content)
+
+    with pytest.raises(ValueError, match=error):
+        transform.transform_listing_html("2004-required-field-failure")
 
 def test_get_product_json_ld_returns_product_data(tmp_path):
     # create a test HTML file with a valid JSON-LD script tag
@@ -723,6 +838,23 @@ def test_parse_mileage_valid():
 def test_parse_mileage_TMU():
     assert transform.parse_mileage("TMU") == None
     assert transform.parse_mileage("Mileage Unknown") == None
+    assert transform.parse_mileage("miles shown") == None
+
+
+@pytest.mark.parametrize(
+    ("raw_mileage", "expected_mileage", "expected_tmu"),
+    [
+        ("50,000 Miles", 50000, False),
+        ("42,000 miles shown", 42000, True),
+        ("2,500 Miles, TMU", 2500, True),
+        ("TMU", None, True),
+        ("Mileage Unknown", None, True),
+        ("miles shown", None, True),
+        (None, None, True),
+    ],
+)
+def test_parse_mileage_status_returns_mileage_and_tmu(raw_mileage, expected_mileage, expected_tmu):
+    assert transform.parse_mileage_status(raw_mileage) == (expected_mileage, expected_tmu)
 
 def test_parse_mileage_invalid():
     with pytest.raises(ValueError, match="Could not parse mileage"):
@@ -911,7 +1043,7 @@ def test_extract_bid_price_no_price_info():
     with pytest.raises(ValueError, match="Could not parse sale price"):
         transform.extract_sale_price(soup, product_data)
 
-def test_extract_sold_status_valid():
+def test_extract_sold_status_returns_true_for_sold_for():
     html_content = """
     <html>
         <body>
@@ -926,7 +1058,7 @@ def test_extract_sold_status_valid():
     soup = BeautifulSoup(html_content, "html.parser")
     assert transform.extract_sold_status(soup) == True
 
-def test_extract_sold_status_not_sold():
+def test_extract_sold_status_returns_false_for_bid_to():
     html_content = """
     <html>
         <body>
@@ -940,6 +1072,24 @@ def test_extract_sold_status_not_sold():
     """
     soup = BeautifulSoup(html_content, "html.parser")
     assert transform.extract_sold_status(soup) == False
+
+
+def test_extract_sold_status_rejects_withdrawn_on():
+    html_content = """
+    <html>
+        <body>
+            <div class="listing-available">
+                    <div class="listing-available-info">
+                        <span class="info-value noborder-tiny">Withdrawn on 4/29/26</span>
+                </div>
+            </div>
+        </body>
+    </html>
+    """
+    soup = BeautifulSoup(html_content, "html.parser")
+    with pytest.raises(ValueError, match="Could not parse sold status"):
+        transform.extract_sold_status(soup)
+
 
 def test_extract_sold_status_no_available_info():
     html_content = """

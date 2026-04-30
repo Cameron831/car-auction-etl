@@ -185,6 +185,63 @@ def test_evaluate_listing_eligibility_rejects_non_usa_country():
     )
 
 
+def test_evaluate_listing_eligibility_rejects_withdrawn_listing():
+    soup = BeautifulSoup(
+        """
+        <html>
+            <body>
+                <span class="show-country-name">USA</span>
+                <div class="listing-available-info">
+                    <span>Withdrawn on 4/29/26</span>
+                </div>
+            </body>
+        </html>
+        """,
+        "html.parser",
+    )
+
+    assert ingest.evaluate_listing_eligibility(soup, "2015-mercedes-benz-sprinter-11") == (
+        False,
+        "listing withdrawn",
+    )
+
+
+def test_evaluate_listing_eligibility_keeps_sold_listing_eligible():
+    soup = BeautifulSoup(
+        """
+        <html>
+            <body>
+                <span class="show-country-name">USA</span>
+                <div class="listing-available-info">
+                    <span>Sold for <strong>USD $19,750</strong></span>
+                </div>
+            </body>
+        </html>
+        """,
+        "html.parser",
+    )
+
+    assert ingest.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (True, None)
+
+
+def test_evaluate_listing_eligibility_keeps_bid_to_listing_eligible():
+    soup = BeautifulSoup(
+        """
+        <html>
+            <body>
+                <span class="show-country-name">USA</span>
+                <div class="listing-available-info">
+                    <span>Bid to <strong>USD $19,750</strong></span>
+                </div>
+            </body>
+        </html>
+        """,
+        "html.parser",
+    )
+
+    assert ingest.evaluate_listing_eligibility(soup, "1967-porsche-911s-coupe") == (True, None)
+
+
 def test_evaluate_listing_eligibility_rejects_excluded_category():
     soup = BeautifulSoup(
         """

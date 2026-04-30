@@ -106,13 +106,13 @@ def test_load_listing_upserts_into_postgres_container(monkeypatch):
                 row_count, sale_price = cur.fetchone()
                 cur.execute(
                     """
-                    SELECT model_raw, model_normalized, listing_details_raw
+                    SELECT model_raw, model_normalized, tmu, listing_details_raw
                     FROM listings
                     WHERE source_site = %s AND source_listing_id = %s
                     """,
                     ("bringatrailer", "test-listing"),
                 )
-                model_raw, model_normalized, listing_details_raw = cur.fetchone()
+                model_raw, model_normalized, tmu, listing_details_raw = cur.fetchone()
                 cur.execute(
                     """
                     SELECT processed
@@ -127,6 +127,7 @@ def test_load_listing_upserts_into_postgres_container(monkeypatch):
         assert sale_price == 20500
         assert model_raw == "BMW E46 M3"
         assert model_normalized == "M3"
+        assert tmu is False
         assert listing_details_raw == ["Updated detail", "6-Speed Manual Transmission"]
         assert raw_processed is True
     finally:
@@ -218,6 +219,7 @@ def _transformed_listing(sale_price, details):
         "model_normalized": "M3",
         "year": 2004,
         "mileage": 50250,
+        "tmu": False,
         "vin": "WBSBL93414PN57203",
         "sale_price": sale_price,
         "sold": True,

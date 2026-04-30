@@ -104,7 +104,14 @@ def transform_listing_html(listing_id):
     make = parse_make(soup)
     model_raw = parse_model(soup)
     model_normalized = normalize_model(make, model_raw)
-    mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
+    mileage, tmu = parse_mileage_status(
+        find_detail_value(
+            listing_details,
+            r"\bmiles?\b|\btmu\b|\bunknown\b|\bmiles?\s+shown\b",
+            "Mileage",
+            required=False,
+        )
+    )
     vin = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
     sale_price = extract_sale_price(soup, product_data)
     sold = extract_sold_status(soup)
@@ -121,6 +128,7 @@ def transform_listing_html(listing_id):
         "model_normalized": model_normalized,
         "year": year,
         "mileage": mileage,
+        "tmu": tmu,
         "vin": vin,
         "sale_price": sale_price,
         "sold": sold,
@@ -197,27 +205,39 @@ def get_listing_details(soup):
     return values
 
 # Find the corresponding value for a given field in the listing details
-def find_detail_value(values, pattern, field_name):
+def find_detail_value(values, pattern, field_name, required=True):
     for value in values:
         if re.search(pattern, value, re.IGNORECASE):
             return value
+    if not required:
+        return None
     raise ValueError(f"Could not parse {field_name}")
 
 def parse_mileage(raw_mileage):
-    mileage = raw_mileage.strip().lower()
+    return parse_mileage_status(raw_mileage)[0]
 
-    if "tmu" in mileage or "unknown" in mileage:
-        return None
+def parse_mileage_status(raw_mileage):
+    if raw_mileage is None:
+        return None, True
 
-    match = re.search(r"(\d{1,3}(?:,\d{3})*|\d+)(k)?\s+miles\b", mileage)
+    mileage_text = raw_mileage.strip().lower()
+    tmu = (
+        "tmu" in mileage_text
+        or "unknown" in mileage_text
+        or "miles shown" in mileage_text
+    )
+
+    match = re.search(r"(\d{1,3}(?:,\d{3})*|\d+)(k)?\s+miles\b", mileage_text)
     if not match:
-        raise ValueError(f"Could not parse mileage")
+        if tmu:
+            return None, True
+        raise ValueError("Could not parse mileage")
 
     mileage = int(match.group(1).replace(",", ""))
     if match.group(2):
         mileage *= 1000
 
-    return mileage
+    return mileage, tmu
 
 def extract_vin(raw_vin):
     match = re.search(r"Chassis:\s*([A-HJ-NPR-Z0-9]+)", raw_vin, re.IGNORECASE)
@@ -247,7 +267,7 @@ def extract_sold_status(soup):
     if not available_info:
         raise ValueError("Could not parse sold status")
     text = available_info.get_text(" ", strip=True)
-    if "Bid to" in text or "Withdrawn on" in text:
+    if "Bid to" in text:
         return False
     elif "Sold for" in text:
         return True

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS listings (
     model_normalized TEXT,
     year INTEGER NOT NULL,
     mileage INTEGER,
+    tmu BOOLEAN NOT NULL DEFAULT FALSE,
     vin TEXT,
     sale_price INTEGER NOT NULL,
     sold BOOLEAN NOT NULL,

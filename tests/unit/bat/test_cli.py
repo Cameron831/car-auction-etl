@@ -24,7 +24,7 @@ def test_ingest_command_fetches_and_saves_listing_html(mocker, caplog, capsys):
     assert "BAT ingest command started for listing_id=test-id" in caplog.text
     assert "BAT ingest command completed for listing_id=test-id" in caplog.text
     assert (
-        "Ingest summary: listing_id=test-id accepted=true raw_stored=true\n"
+        "\nIngest summary: listing_id=test-id accepted=true raw_stored=true\n"
         == capsys.readouterr().out
     )
 
@@ -43,7 +43,7 @@ def test_ingest_command_prints_rejected_summary_without_reason(mocker, capsys):
     cli.main(["ingest", "--listing-id", "test-id"])
 
     out = capsys.readouterr().out
-    assert out == "Ingest summary: listing_id=test-id accepted=false raw_stored=false\n"
+    assert out == "\nIngest summary: listing_id=test-id accepted=false raw_stored=false\n"
     assert "reason" not in out
     assert "source" not in out
 
@@ -62,7 +62,7 @@ def test_transform_command_prints_summary(mocker, capsys):
 
     transform_listing.assert_called_once_with("test-id")
     assert (
-        "Transform summary: listing_id=test-id transformed=true loaded=true\n"
+        "\nTransform summary: listing_id=test-id transformed=true loaded=true\n"
         == capsys.readouterr().out
     )
 
@@ -104,7 +104,7 @@ def test_run_command_executes_ingest_transform_load_in_order(mocker, capsys):
 
     run_listing.assert_called_once_with("test-id")
     assert (
-        "Run summary: listing_id=test-id accepted=true raw_stored=true "
+        "\nRun summary: listing_id=test-id accepted=true raw_stored=true "
         "transformed=true loaded=true\n"
     ) == capsys.readouterr().out
 
@@ -126,7 +126,7 @@ def test_run_command_prints_rejected_summary_without_reason(mocker, capsys):
 
     out = capsys.readouterr().out
     assert (
-        "Run summary: listing_id=test-id accepted=false raw_stored=false "
+        "\nRun summary: listing_id=test-id accepted=false raw_stored=false "
         "transformed=false loaded=false\n"
     ) == out
     assert "reason" not in out
@@ -173,7 +173,7 @@ def test_discover_command_dispatches_with_parsed_options(mocker, caplog, capsys)
     assert "BAT discover summary inspected=2 new=1 existing_or_updated=1 failed=0" in caplog.text
     assert "BAT discover command completed for scrape_date=2026-04-20" in caplog.text
     assert (
-        "Discovery summary: inspected=2 new=1 existing_or_updated=1 failed=0"
+        "\nDiscovery summary: inspected=2 new=1 existing_or_updated=1 failed=0"
         in capsys.readouterr().out
     )
 
@@ -256,7 +256,7 @@ def test_ingest_discovered_command_dispatches_with_parsed_options(mocker, caplog
     ) in caplog.text
     assert "BAT ingest-discovered command completed for batch_size=5" in caplog.text
     assert (
-        "Ingest-discovered summary: selected=3 scrape_attempted=2 "
+        "\nIngest-discovered summary: selected=3 scrape_attempted=2 "
         "scrape_failed=1 rejected=1 raw_html_stored=1 accepted=1"
     ) in capsys.readouterr().out
 
@@ -303,7 +303,7 @@ def test_transform_discovered_command_dispatches_with_parsed_options(mocker, cap
     ) in caplog.text
     assert "BAT transform-discovered command completed for batch_size=5" in caplog.text
     assert (
-        "Transform-discovered summary: selected=3 transformed_and_loaded=1 "
+        "\nTransform-discovered summary: selected=3 transformed_and_loaded=1 "
         "transform_failed=1 load_failed=1"
     ) in capsys.readouterr().out
 

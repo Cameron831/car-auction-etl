@@ -80,6 +80,9 @@ def evaluate_listing_eligibility(soup, listing_id):
     if extract_country(soup) != BAT_ALLOWED_COUNTRY:
         return False, "listing outside US"
 
+    if is_withdrawn_listing(soup):
+        return False, "listing withdrawn"
+
     categories = extract_group_value(soup, "Category")
     if categories is None:
         return True, None
@@ -107,6 +110,14 @@ def extract_country(soup):
     if not country:
         return None
     return country
+
+
+def is_withdrawn_listing(soup):
+    available_info = soup.select_one(".listing-available-info")
+    if available_info is None:
+        return False
+
+    return "withdrawn" in available_info.get_text(" ", strip=True).lower()
 
 
 def extract_group_value(soup, label):
