@@ -80,6 +80,7 @@ EXPECTED_TRANSFORMED_DATA = {
     "model_normalized": "M3",
     "year": 2004,
     "mileage": 178000,
+    "tmu": False,
     "vin": "WBSBL93414PN57203",
     "sale_price": 19750,
     "sold": True,

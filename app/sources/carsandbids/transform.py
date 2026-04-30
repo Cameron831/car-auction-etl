@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from datetime import datetime
 
 import psycopg
@@ -92,6 +93,10 @@ def transform_listing_json(listing_id):
     payload = load_listing_json(listing_id)
     listing = payload["listing"]
     model_raw = listing["model"]
+    mileage, tmu = parse_mileage_status(
+        listing["mileage"],
+        listing["mileage_text"],
+    )
 
     transformed_data = {
         "source_site": SOURCE_SITE,
@@ -101,7 +106,8 @@ def transform_listing_json(listing_id):
         "model_raw": model_raw,
         "model_normalized": normalize_model(listing["make"], model_raw),
         "year": listing["year"],
-        "mileage": listing["mileage"],
+        "mileage": mileage,
+        "tmu": tmu,
         "vin": listing["vin"],
         "sale_price": extract_sale_price(payload),
         "sold": extract_sold_status(payload),
@@ -145,6 +151,24 @@ def normalize_transmission(raw_transmission):
         return TRANSMISSION_VALUES[raw_transmission]
     except KeyError as exc:
         raise ValueError(f"Could not normalize transmission: {raw_transmission}") from exc
+
+
+def parse_mileage_status(mileage, mileage_text):
+    if mileage is not None:
+        return mileage, False
+
+    if mileage_text is None:
+        return None, False
+
+    match = re.search(r"(\d{1,3}(?:,\d{3})*|\d+)(k)?\s+miles?\b", mileage_text.lower())
+    if not match:
+        return None, True
+
+    parsed_mileage = int(match.group(1).replace(",", ""))
+    if match.group(2):
+        parsed_mileage *= 1000
+
+    return parsed_mileage, True
 
 
 def extract_listing_details_raw(listing):

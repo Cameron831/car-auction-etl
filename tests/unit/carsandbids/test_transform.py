@@ -225,6 +225,7 @@ def test_transform_listing_json_maps_fixture_to_normalized_listing(mocker):
     assert transformed["model_normalized"] == "911"
     assert transformed["year"] == 2013
     assert transformed["mileage"] == 56700
+    assert transformed["tmu"] is False
     assert transformed["vin"] == "WP0AA2A95DS107582"
     assert transformed["sale_price"] == 78000
     assert transformed["sold"] is True
@@ -294,11 +295,35 @@ def test_extract_sale_price_requires_sale_amount_or_current_bid():
 def test_transform_listing_json_passes_null_mileage_through(mocker):
     payload = _fixture_payload()
     payload["listing"]["mileage"] = None
+    payload["listing"]["mileage_text"] = None
     mocker.patch.object(transform, "load_listing_json", return_value=payload)
 
     transformed = transform.transform_listing_json("3pnjnnx6")
 
     assert transformed["mileage"] is None
+    assert transformed["tmu"] is False
+
+
+@pytest.mark.parametrize(
+    ("mileage", "mileage_text", "expected_mileage", "expected_tmu"),
+    [
+        (56700, None, 56700, False),
+        (None, "10000 miles shown", 10000, True),
+        (None, "4000 miles on build", 4000, True),
+        (None, "no odometer", None, True),
+        (None, "TMU", None, True),
+    ],
+)
+def test_parse_mileage_status_uses_mileage_and_mileage_text(
+    mileage,
+    mileage_text,
+    expected_mileage,
+    expected_tmu,
+):
+    assert transform.parse_mileage_status(mileage, mileage_text) == (
+        expected_mileage,
+        expected_tmu,
+    )
 
 
 @pytest.mark.parametrize(
