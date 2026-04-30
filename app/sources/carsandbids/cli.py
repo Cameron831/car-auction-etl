@@ -49,7 +49,7 @@ def _format_bool(value):
 
 def _print_ingest_summary(summary):
     print(
-        "Ingest summary: "
+        "\nIngest summary: "
         f"listing_id={summary.listing_id} "
         f"accepted={_format_bool(summary.accepted)} "
         f"raw_stored={_format_bool(summary.raw_stored)}"
@@ -58,7 +58,7 @@ def _print_ingest_summary(summary):
 
 def _print_transform_summary(summary):
     print(
-        "Transform summary: "
+        "\nTransform summary: "
         f"listing_id={summary.listing_id} "
         f"transformed={_format_bool(summary.transformed)} "
         f"loaded={_format_bool(summary.loaded)}"
@@ -67,7 +67,7 @@ def _print_transform_summary(summary):
 
 def _print_run_summary(summary):
     print(
-        "Run summary: "
+        "\nRun summary: "
         f"listing_id={summary.listing_id} "
         f"accepted={_format_bool(summary.accepted)} "
         f"raw_stored={_format_bool(summary.raw_stored)} "
@@ -98,16 +98,16 @@ def main(argv=None):
                 summary.already_discovered_or_updated,
                 summary.failed,
             )
+            logger.info(
+                "carsandbids discover command completed for scrape_date=%s",
+                args.scrape_date.isoformat(),
+            )
             print(
-                "Discovery summary: "
+                "\nDiscovery summary: "
                 f"inspected={summary.candidates_inspected} "
                 f"new={summary.newly_discovered} "
                 f"existing_or_updated={summary.already_discovered_or_updated} "
                 f"failed={summary.failed}"
-            )
-            logger.info(
-                "carsandbids discover command completed for scrape_date=%s",
-                args.scrape_date.isoformat(),
             )
             return
         if args.command == "ingest-discovered":
@@ -127,18 +127,18 @@ def main(argv=None):
                 summary.raw_json_stored,
                 summary.accepted,
             )
+            logger.info(
+                "carsandbids ingest-discovered command completed for batch_size=%s",
+                args.batch_size,
+            )
             print(
-                "Ingest-discovered summary: "
+                "\nIngest-discovered summary: "
                 f"selected={summary.selected} "
                 f"scrape_attempted={summary.scrape_attempted} "
                 f"scrape_failed={summary.scrape_failed} "
                 f"rejected={summary.rejected} "
                 f"raw_json_stored={summary.raw_json_stored} "
                 f"accepted={summary.accepted}"
-            )
-            logger.info(
-                "carsandbids ingest-discovered command completed for batch_size=%s",
-                args.batch_size,
             )
             return
         if args.command == "transform-discovered":
@@ -156,16 +156,16 @@ def main(argv=None):
                 summary.transform_failed,
                 summary.load_failed,
             )
+            logger.info(
+                "carsandbids transform-discovered command completed for batch_size=%s",
+                args.batch_size,
+            )
             print(
-                "Transform-discovered summary: "
+                "\nTransform-discovered summary: "
                 f"selected={summary.selected} "
                 f"transformed_and_loaded={summary.transformed_and_loaded} "
                 f"transform_failed={summary.transform_failed} "
                 f"load_failed={summary.load_failed}"
-            )
-            logger.info(
-                "carsandbids transform-discovered command completed for batch_size=%s",
-                args.batch_size,
             )
             return
 
@@ -176,12 +176,27 @@ def main(argv=None):
         )
         if args.command == "ingest":
             summary = carsandbids_pipeline.ingest_listing(args.listing_id)
+            logger.info(
+                "carsandbids %s command completed for listing_id=%s",
+                args.command,
+                args.listing_id,
+            )
             _print_ingest_summary(summary)
         elif args.command == "transform":
             summary = carsandbids_pipeline.transform_listing(args.listing_id)
+            logger.info(
+                "carsandbids %s command completed for listing_id=%s",
+                args.command,
+                args.listing_id,
+            )
             _print_transform_summary(summary)
         elif args.command == "run":
             summary = carsandbids_pipeline.run_listing(args.listing_id)
+            logger.info(
+                "carsandbids %s command completed for listing_id=%s",
+                args.command,
+                args.listing_id,
+            )
             _print_run_summary(summary)
     except Exception:
         if args.command == "discover":
@@ -206,11 +221,6 @@ def main(argv=None):
                 args.listing_id,
             )
         raise
-    logger.info(
-        "carsandbids %s command completed for listing_id=%s",
-        args.command,
-        args.listing_id,
-    )
 
 
 if __name__ == "__main__":
