@@ -1,159 +1,117 @@
 # Car Auction ETL
 
-Car Auction ETL is a Python CLI that scrapes completed vehicle auctions, stores raw source artifacts, transforms listing data, and loads normalized records into Postgres.
+<p align="center">
+  <img src="docs/hero-banner.png" alt="Car Auction ETL - completed vehicle auction data pipeline" width="800">
+</p>
 
-Status: end-to-end MVP complete.
+<p align="center">
+  <strong>Built for enthusiasts who want to understand the market.</strong>
+</p>
 
-## What It Proves
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat&logo=python&logoColor=white" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/Postgres-17-4169E1?style=flat&logo=postgresql&logoColor=white" alt="Postgres 17">
+  <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat&logo=docker&logoColor=white" alt="Docker Compose">
+  <img src="https://img.shields.io/badge/Playwright-enabled-2EAD33?style=flat&logo=playwright&logoColor=white" alt="Playwright">
+  <img src="https://img.shields.io/badge/pytest-tested-0A9EDC?style=flat&logo=pytest&logoColor=white" alt="pytest">
+  <img src="https://img.shields.io/badge/Status-end--to--end%20MVP-brightgreen?style=flat" alt="End-to-end MVP">
+</p>
 
-- Multiple auction sources: Bring a Trailer (`bat`) and Cars & Bids (`cab`).
-- Live discovery of completed auction listings.
-- Live single-listing ingestion from source pages and APIs.
-- Raw source storage in Postgres (`raw_listing_html` and `raw_listing_json`).
-- Source-specific transforms into normalized vehicle and sale fields.
+---
+
+## What It Is
+
+Car Auction ETL is a Python CLI pipeline for collecting completed vehicle auction data from Bring a Trailer and Cars & Bids, preserving raw source artifacts, and loading normalized records into Postgres.
+
+It supports:
+
+- Discovery of completed auction listings from supported sources.
+- Single-listing and batch ingestion from live source pages and APIs.
+- Raw source storage for HTML and JSON artifacts before transformation.
+- Source-specific normalization into vehicle and sale fields.
 - Postgres loading with uniqueness constraints by source and listing ID.
-- Automated unit and integration tests.
+- Unit and integration tests for the core ETL flow.
 
 Live scraping depends on source-site availability and page structure.
 
-## End-to-End Flow
-
-1. Discover completed auction listings.
-2. Ingest raw source artifacts.
-3. Transform source data into normalized fields.
-4. Load normalized records into Postgres.
-
 ## CLI
 
-Install dependencies before using the console script. Preferred top-level format:
+Install dependencies before using the console script. Commands use this top-level format:
 
 ```text
 auction-etl bat ...
 auction-etl cab ...
 ```
 
-Single-listing examples:
+Supported sources:
+
+- `bat`: Bring a Trailer
+- `cab`: Cars & Bids
+
+| Command | Purpose |
+| --- | --- |
+| `auction-etl <source> ingest --listing-id <id>` | Fetch and store raw source data for one listing. |
+| `auction-etl <source> transform --listing-id <id>` | Transform and load one previously ingested listing. |
+| `auction-etl <source> run --listing-id <id>` | Ingest, transform, and load one listing end to end. |
+| `auction-etl <source> discover [--scrape-date YYYY-MM-DD] [--max-candidates N]` | Discover completed auction listings for a source. |
+| `auction-etl <source> ingest-discovered [--batch-size N]` | Ingest raw source data for discovered listings. |
+| `auction-etl <source> transform-discovered [--batch-size N]` | Transform and load discovered listings that have raw data. |
+
+See [docs/demo.md](docs/demo.md) for runnable examples and expected summary output.
+
+## Quick Start
 
 ```text
-auction-etl bat run --listing-id 2016-porsche-boxster-spyder-55
-auction-etl cab run --listing-id rGJlwggO
-```
+# 1. Clone and install
+git clone https://github.com/Cameron831/car-auction-etl.git
+cd car-auction-etl
+python -m pip install -r requirements.txt
+python -m playwright install chromium
 
-Discovery and batch examples:
-
-```text
-auction-etl bat discover --max-candidates 5
-auction-etl bat ingest-discovered --batch-size 5
-auction-etl bat transform-discovered --batch-size 5
-
-auction-etl cab discover --max-candidates 5
-auction-etl cab ingest-discovered --batch-size 5
-auction-etl cab transform-discovered --batch-size 5
-```
-
-Expected summary output examples:
-
-```text
-Discovery summary: inspected=5 new=4 existing_or_updated=1 failed=0
-Ingest summary: listing_id=2016-porsche-boxster-spyder-55 accepted=true raw_stored=true
-Transform summary: listing_id=2016-porsche-boxster-spyder-55 transformed=true loaded=true
-Run summary: listing_id=rGJlwggO accepted=true raw_stored=true transformed=true loaded=true
-Ingest-discovered summary: selected=5 scrape_attempted=5 scrape_failed=0 rejected=0 raw_html_stored=5 accepted=5
-Ingest-discovered summary: selected=5 scrape_attempted=5 scrape_failed=0 rejected=0 raw_json_stored=5 accepted=5
-Transform-discovered summary: selected=5 transformed_and_loaded=5 transform_failed=0 load_failed=0
-```
-
-## Windows PowerShell Setup
-
-```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-.venv\Scripts\python.exe -m pip install -r requirements.txt
+# 2. Start Postgres
 docker compose up -d postgres
-$env:DATABASE_URL = "postgresql://auction_user:localdevpassword@127.0.0.1:5433/auction_etl"
-```
 
-Run live examples:
+# 3. Configure local environment
+# macOS/Linux:
+cp .env.example .env
+# Windows PowerShell:
+Copy-Item .env.example .env
 
-```powershell
+# 4. Check setup
+python -m pytest -q
+
+# 5. Run the CLI
 auction-etl bat run --listing-id 2016-porsche-boxster-spyder-55
 auction-etl cab run --listing-id rGJlwggO
-auction-etl bat discover --max-candidates 5
-auction-etl cab discover --max-candidates 5
-```
-
-Run tests:
-
-```powershell
-.venv\Scripts\python.exe -m pytest -q
-```
-
-## macOS/Linux Setup
-
-```sh
-python3.11 -m venv .venv
-. .venv/bin/activate
-.venv/bin/python -m pip install -r requirements.txt
-docker compose up -d postgres
-export DATABASE_URL="postgresql://auction_user:localdevpassword@127.0.0.1:5433/auction_etl"
-```
-
-Run live examples:
-
-```sh
-auction-etl bat run --listing-id 2016-porsche-boxster-spyder-55
-auction-etl cab run --listing-id rGJlwggO
-auction-etl bat discover --max-candidates 5
-auction-etl cab discover --max-candidates 5
-```
-
-Run tests:
-
-```sh
-.venv/bin/python -m pytest -q
 ```
 
 ## Data Model
 
-Core normalized listing fields:
+### Tables
 
-- `source_site`
-- `source_listing_id`
-- `url`
-- `make`
-- `model_raw`
-- `model_normalized`
-- `year`
-- `mileage`
-- `vin`
-- `sale_price`
-- `sold`
-- `auction_end_date`
-- `transmission`
-- `listing_details_raw`
+| Table | Purpose |
+| --- | --- |
+| `listings` | Normalized vehicle and sale records loaded from supported auction sources. |
+| `discovered_listings` | Candidate listing URLs found during discovery, with eligibility and ingestion status. |
+| `raw_listing_html` | Raw Bring a Trailer listing HTML captured before transformation. |
+| `raw_listing_json` | Raw Cars & Bids listing JSON captured before transformation. |
 
-Supporting tables:
+### Normalized Listing Fields
 
-- `discovered_listings`: source listing IDs, URLs, eligibility, discovery timestamps, and ingestion status.
-- `raw_listing_html`: raw Bring a Trailer HTML artifacts.
-- `raw_listing_json`: raw Cars & Bids JSON artifacts.
-
-## Screenshot Placeholders
-
-![Live BAT and Cars & Bids CLI output](docs/screenshots/live-cli-output.png)
-
-Caption: proof that live single-listing commands run for both supported sources and print end-to-end summary lines.
-
-![Database proof for normalized records](docs/screenshots/postgres-normalized-records.png)
-
-Caption: proof that normalized rows from Bring a Trailer and Cars & Bids are loaded into Postgres.
-
-![Passing test output](docs/screenshots/passing-tests.png)
-
-Caption: optional proof that the automated test suite passes locally.
+| Field | Notes |
+| --- | --- |
+| `source_site` | Source identifier, such as `bat` or `cab`. |
+| `source_listing_id` | Source-native listing ID; unique with `source_site`. |
+| `url` | Original listing URL. |
+| `make`, `model_raw`, `model_normalized`, `year` | Vehicle identity fields. |
+| `mileage`, `vin`, `transmission` | Optional vehicle details when available. |
+| `sale_price`, `sold`, `auction_end_date` | Auction result fields. |
+| `listing_details_raw` | Source-specific details retained as JSON. |
 
 ## Future Work
 
-- Add durable screenshots for the proof points above.
-- Expand normalized fields where source data is reliable.
-- Add operational hardening around source-site changes and retry behavior.
+- Improve model and generation normalization mappings for more consistent comparisons across listings.
+- Fix known source parsing edge cases, including percent-encoded listing IDs, ambiguous transmissions, and replica/manufacturer-year handling.
+- Add operational hardening with retry behavior, parallel batch processing, and configurable CLI logging modes.
+- Support scheduled production runs backed by managed Postgres, such as AWS PostgreSQL.
+- Build a front-end dashboard for exploring normalized listings and price trends.
