@@ -104,7 +104,14 @@ def transform_listing_html(listing_id):
     make = parse_make(soup)
     model_raw = parse_model(soup)
     model_normalized = normalize_model(make, model_raw)
-    mileage = parse_mileage(find_detail_value(listing_details, r"\bmiles?\b|\btmu\b|\bunknown\b", "Mileage"))
+    mileage = parse_mileage(
+        find_detail_value(
+            listing_details,
+            r"\bmiles?\b|\btmu\b|\bunknown\b|\bmiles?\s+shown\b",
+            "Mileage",
+            required=False,
+        )
+    )
     vin = extract_vin(find_detail_value(listing_details, r"^Chassis:", "VIN"))
     sale_price = extract_sale_price(soup, product_data)
     sold = extract_sold_status(soup)
@@ -197,16 +204,21 @@ def get_listing_details(soup):
     return values
 
 # Find the corresponding value for a given field in the listing details
-def find_detail_value(values, pattern, field_name):
+def find_detail_value(values, pattern, field_name, required=True):
     for value in values:
         if re.search(pattern, value, re.IGNORECASE):
             return value
+    if not required:
+        return None
     raise ValueError(f"Could not parse {field_name}")
 
 def parse_mileage(raw_mileage):
+    if raw_mileage is None:
+        return None
+
     mileage = raw_mileage.strip().lower()
 
-    if "tmu" in mileage or "unknown" in mileage:
+    if "tmu" in mileage or "unknown" in mileage or "miles shown" in mileage:
         return None
 
     match = re.search(r"(\d{1,3}(?:,\d{3})*|\d+)(k)?\s+miles\b", mileage)
