@@ -247,7 +247,7 @@ def extract_sold_status(soup):
     if not available_info:
         raise ValueError("Could not parse sold status")
     text = available_info.get_text(" ", strip=True)
-    if "Bid to" in text or "Withdrawn on" in text:
+    if "Bid to" in text:
         return False
     elif "Sold for" in text:
         return True
