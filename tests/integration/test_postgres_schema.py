@@ -57,7 +57,8 @@ def test_schema_sql_applies_in_isolated_postgres_container():
                   'make',
                   'model',
                   'model_raw',
-                  'model_normalized'
+                  'model_normalized',
+                  'tmu'
               )
             ORDER BY column_name;
             """,
@@ -68,7 +69,39 @@ def test_schema_sql_applies_in_isolated_postgres_container():
             "make:text:NO",
             "model_normalized:text:YES",
             "model_raw:text:YES",
+            "tmu:boolean:NO",
         ]
+
+        listing_defaults = _psql(
+            container_name,
+            """
+            WITH inserted AS (
+                INSERT INTO listings (
+                    source_site,
+                    source_listing_id,
+                    url,
+                    make,
+                    year,
+                    sale_price,
+                    sold,
+                    auction_end_date
+                ) VALUES (
+                    'bringatrailer',
+                    'schema-listing-default-test',
+                    'https://bringatrailer.com/listing/schema-listing-default-test/',
+                    'BMW',
+                    2004,
+                    19750,
+                    TRUE,
+                    '2026-03-30'
+                )
+                RETURNING tmu
+            )
+            SELECT tmu::text
+            FROM inserted;
+            """,
+        )
+        assert listing_defaults == ["false"]
 
         unique_columns = _psql(
             container_name,

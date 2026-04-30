@@ -16,6 +16,7 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
     assert params["model_normalized"] == "911"
     assert params["year"] == 2013
     assert params["mileage"] == 56700
+    assert params["tmu"] is False
     assert params["vin"] == "WP0AA2A95DS107582"
     assert params["sale_price"] == 78000
     assert params["sold"] is True
@@ -87,6 +88,8 @@ def test_load_listing_executes_upsert_and_marks_raw_json_processed(mocker, caplo
     assert "updated_at = NOW()" in listing_sql
     assert "model_raw" in listing_sql
     assert "model_normalized" in listing_sql
+    assert "tmu" in listing_sql
+    assert "tmu = EXCLUDED.tmu" in listing_sql
     assert "model = EXCLUDED.model" not in listing_sql
     assert listing_params["source_listing_id"] == "test-listing"
     assert listing_params["listing_details_raw"].obj == {
@@ -119,6 +122,7 @@ def _transformed_listing():
         "model_normalized": "911",
         "year": 2013,
         "mileage": 56700,
+        "tmu": False,
         "vin": "WP0AA2A95DS107582",
         "sale_price": 78000,
         "sold": True,

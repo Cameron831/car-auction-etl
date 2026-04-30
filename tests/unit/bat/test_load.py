@@ -16,6 +16,7 @@ def test_build_listing_params_maps_transformed_listing_to_schema_columns():
     assert params["model_normalized"] == "M3"
     assert params["year"] == 2004
     assert params["mileage"] == 50250
+    assert params["tmu"] is False
     assert params["vin"] == "WBSBL93414PN57203"
     assert params["sale_price"] == 19750
     assert params["sold"] is True
@@ -83,6 +84,8 @@ def test_load_listing_executes_upsert_with_expected_conflict_target(mocker, capl
     assert "updated_at = NOW()" in listing_sql
     assert "model_raw" in listing_sql
     assert "model_normalized" in listing_sql
+    assert "tmu" in listing_sql
+    assert "tmu = EXCLUDED.tmu" in listing_sql
     assert "model = EXCLUDED.model" not in listing_sql
     assert listing_params["source_listing_id"] == "test-listing"
     assert listing_params["listing_details_raw"].obj == [
@@ -117,6 +120,7 @@ def _transformed_listing():
         "model_normalized": "M3",
         "year": 2004,
         "mileage": 50250,
+        "tmu": False,
         "vin": "WBSBL93414PN57203",
         "sale_price": 19750,
         "sold": True,

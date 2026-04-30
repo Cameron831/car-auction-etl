@@ -236,6 +236,8 @@ def test_transform_listing_html_logs_success_without_raw_html(mocker, caplog):
     assert transformed["listing_id"] == "2004-test-id"
     assert transformed["model_raw"] == "M3"
     assert transformed["model_normalized"] == "M3"
+    assert transformed["mileage"] == 50250
+    assert transformed["tmu"] is False
     assert "Transforming BAT listing HTML for listing_id=2004-test-id" in caplog.text
     assert "Transformed BAT listing HTML for listing_id=2004-test-id" in caplog.text
     assert "SENSITIVE_RAW_HTML" not in caplog.text
@@ -331,6 +333,7 @@ def test_transform_listing_html_allows_missing_mileage_detail(mocker):
     transformed = transform.transform_listing_html("2004-missing-mileage")
 
     assert transformed["mileage"] is None
+    assert transformed["tmu"] is True
     assert transformed["vin"] == "WBSBL93414PN57203"
     assert transformed["transmission"] == "manual"
 
@@ -836,6 +839,22 @@ def test_parse_mileage_TMU():
     assert transform.parse_mileage("TMU") == None
     assert transform.parse_mileage("Mileage Unknown") == None
     assert transform.parse_mileage("miles shown") == None
+
+
+@pytest.mark.parametrize(
+    ("raw_mileage", "expected_mileage", "expected_tmu"),
+    [
+        ("50,000 Miles", 50000, False),
+        ("42,000 miles shown", 42000, True),
+        ("2,500 Miles, TMU", 2500, True),
+        ("TMU", None, True),
+        ("Mileage Unknown", None, True),
+        ("miles shown", None, True),
+        (None, None, True),
+    ],
+)
+def test_parse_mileage_status_returns_mileage_and_tmu(raw_mileage, expected_mileage, expected_tmu):
+    assert transform.parse_mileage_status(raw_mileage) == (expected_mileage, expected_tmu)
 
 def test_parse_mileage_invalid():
     with pytest.raises(ValueError, match="Could not parse mileage"):
