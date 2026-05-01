@@ -32,7 +32,9 @@ It supports:
 - Postgres loading with uniqueness constraints by source and listing ID.
 - Unit and integration tests for the core ETL flow.
 
-Live scraping depends on source-site availability and page structure.
+<p align="center">
+  <img src="docs/demo.gif" alt="Car Auction ETL CLI demo" width="800">
+</p>
 
 ## CLI
 
@@ -56,8 +58,6 @@ Supported sources:
 | `auction-etl <source> discover [--scrape-date YYYY-MM-DD] [--max-candidates N]` | Discover completed auction listings for a source. |
 | `auction-etl <source> ingest-discovered [--batch-size N]` | Ingest raw source data for discovered listings. |
 | `auction-etl <source> transform-discovered [--batch-size N]` | Transform and load discovered listings that have raw data. |
-
-See [docs/demo.md](docs/demo.md) for runnable examples and expected summary output.
 
 ## Quick Start
 
@@ -115,3 +115,7 @@ auction-etl cab run --listing-id rGJlwggO
 - Add operational hardening with retry behavior, parallel batch processing, and configurable CLI logging modes.
 - Support scheduled production runs backed by managed Postgres, such as AWS PostgreSQL.
 - Build a front-end dashboard for exploring normalized listings and price trends.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
